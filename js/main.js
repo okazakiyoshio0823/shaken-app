@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeEnterKeyNavigation();
 });
 
-// Enterキーで次の入力欄に移動する機能
+// Enterキーで次の入力欄に移動する機能（Shift+Enterで前へ戻る）
 function initializeEnterKeyNavigation() {
     // 入力順序を定義（ID順）
     const inputOrder = [
@@ -41,6 +41,22 @@ function initializeEnterKeyNavigation() {
         'notes'
     ];
 
+    // 有効な入力要素かチェック
+    function isValidElement(id) {
+        const element = document.getElementById(id);
+        if (!element) return false;
+
+        // 所有者フィールドがhiddenの場合はスキップ
+        const ownerFields = document.getElementById('ownerFields');
+        if ((id === 'ownerName' || id === 'ownerAddress') &&
+            ownerFields && ownerFields.style.display === 'none') {
+            return false;
+        }
+
+        // 要素が表示されていて有効な場合のみ
+        return element.offsetParent !== null && !element.disabled;
+    }
+
     // すべての入力要素にイベントリスナーを追加
     inputOrder.forEach((id, index) => {
         const element = document.getElementById(id);
@@ -52,25 +68,29 @@ function initializeEnterKeyNavigation() {
                 e.preventDefault();
 
                 // textareaの場合は改行を許可（Ctrl+Enterで次へ）
-                if (element.tagName === 'TEXTAREA' && !e.ctrlKey) {
+                if (element.tagName === 'TEXTAREA' && !e.ctrlKey && !e.shiftKey) {
                     return;
                 }
 
-                // 次の入力要素を探す
-                for (let i = index + 1; i < inputOrder.length; i++) {
-                    const nextElement = document.getElementById(inputOrder[i]);
-                    if (nextElement) {
-                        // 所有者フィールドがhiddenの場合はスキップ
-                        const ownerFields = document.getElementById('ownerFields');
-                        if ((inputOrder[i] === 'ownerName' || inputOrder[i] === 'ownerAddress') &&
-                            ownerFields && ownerFields.style.display === 'none') {
-                            continue;
+                // Shift+Enter: 前の入力要素へ戻る
+                if (e.shiftKey) {
+                    for (let i = index - 1; i >= 0; i--) {
+                        if (isValidElement(inputOrder[i])) {
+                            const prevElement = document.getElementById(inputOrder[i]);
+                            prevElement.focus();
+                            if (prevElement.tagName === 'SELECT') {
+                                prevElement.click();
+                            }
+                            break;
                         }
-
-                        // 要素が表示されていて有効な場合のみフォーカス
-                        if (nextElement.offsetParent !== null && !nextElement.disabled) {
+                    }
+                }
+                // Enter: 次の入力要素へ進む
+                else {
+                    for (let i = index + 1; i < inputOrder.length; i++) {
+                        if (isValidElement(inputOrder[i])) {
+                            const nextElement = document.getElementById(inputOrder[i]);
                             nextElement.focus();
-                            // selectの場合はドロップダウンを開く
                             if (nextElement.tagName === 'SELECT') {
                                 nextElement.click();
                             }
@@ -82,7 +102,7 @@ function initializeEnterKeyNavigation() {
         });
     });
 
-    console.log('Enterキーナビゲーションを初期化しました');
+    console.log('Enterキーナビゲーションを初期化しました（Enter=次へ, Shift+Enter=前へ）');
 }
 
 // データ読み込み
