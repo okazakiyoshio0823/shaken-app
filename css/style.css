@@ -93,6 +93,15 @@ body {
     background: #f5f5f5;
 }
 
+.btn-warning {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #e67e22, #d35400);
+}
+
 .card {
     background: var(--card-bg);
     border-radius: var(--radius);
