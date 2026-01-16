@@ -43,13 +43,21 @@ function saveCustomerData() {
     const plate = getPlateNumber();
     if (plate === '-') { alert('ナンバープレートを入力してください'); return; }
 
+    const ownerSameAsUser = document.getElementById('ownerSameAsUser').checked;
+
     const data = {
         id: Date.now(), savedAt: new Date().toISOString(),
-        customerName: document.getElementById('customerName').value,
-        customerNameKana: document.getElementById('customerNameKana').value,
-        customerAddress: document.getElementById('customerAddress').value,
-        customerTel: document.getElementById('customerTel').value,
-        customerEmail: document.getElementById('customerEmail').value,
+        // 使用者情報
+        userName: document.getElementById('userName').value,
+        userNameKana: document.getElementById('userNameKana').value,
+        userAddress: document.getElementById('userAddress').value,
+        userTel: document.getElementById('userTel').value,
+        userEmail: document.getElementById('userEmail').value,
+        // 所有者情報
+        ownerSameAsUser: ownerSameAsUser,
+        ownerName: ownerSameAsUser ? '' : document.getElementById('ownerName').value,
+        ownerAddress: ownerSameAsUser ? '' : document.getElementById('ownerAddress').value,
+        // 車両情報
         plateRegion: document.getElementById('plateRegion').value,
         plateClass: document.getElementById('plateClass').value,
         plateHiragana: document.getElementById('plateHiragana').value,
@@ -88,8 +96,8 @@ function renderCustomerList(search = '') {
     let list = savedCustomers;
     if (search) {
         const s = search.toLowerCase();
-        list = list.filter(c => c.customerName.toLowerCase().includes(s) ||
-            c.plateSerial.includes(s) || c.carName.toLowerCase().includes(s));
+        list = list.filter(c => (c.userName || c.customerName || '').toLowerCase().includes(s) ||
+            (c.plateSerial || '').includes(s) || (c.carName || '').toLowerCase().includes(s));
     }
     list.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
 
@@ -100,7 +108,10 @@ function renderCustomerList(search = '') {
     container.innerHTML = list.map(c => `
         <div class="customer-list-item">
             <div class="customer-info">
-                <div class="name">${escapeHtml(c.customerName || '名前未登録')}</div>
+                <div class="name">${escapeHtml(c.userName || c.customerName || '名前未登録')}</div>
+                <div class="details">🚗 ${c.plateRegion} ${c.plateClass} ${c.plateHiragana} ${c.plateSerial} | ${escapeHtml(c.carName || '')}</div>
+            </div>
+            <div class="customer-actions">
                 <div class="details">🚗 ${c.plateRegion} ${c.plateClass} ${c.plateHiragana} ${c.plateSerial} | ${escapeHtml(c.carName || '')}</div>
             </div>
             <div class="customer-actions">
@@ -114,11 +125,22 @@ function renderCustomerList(search = '') {
 function loadCustomerData(id) {
     const c = savedCustomers.find(x => x.id === id);
     if (!c) return;
-    document.getElementById('customerName').value = c.customerName || '';
-    document.getElementById('customerNameKana').value = c.customerNameKana || '';
-    document.getElementById('customerAddress').value = c.customerAddress || '';
-    document.getElementById('customerTel').value = c.customerTel || '';
-    document.getElementById('customerEmail').value = c.customerEmail || '';
+
+    // 使用者情報
+    document.getElementById('userName').value = c.userName || c.customerName || '';
+    document.getElementById('userNameKana').value = c.userNameKana || c.customerNameKana || '';
+    document.getElementById('userAddress').value = c.userAddress || c.customerAddress || '';
+    document.getElementById('userTel').value = c.userTel || c.customerTel || '';
+    document.getElementById('userEmail').value = c.userEmail || c.customerEmail || '';
+
+    // 所有者情報
+    const ownerSameAsUser = c.ownerSameAsUser !== false && !c.ownerName;
+    document.getElementById('ownerSameAsUser').checked = ownerSameAsUser;
+    document.getElementById('ownerName').value = c.ownerName || '';
+    document.getElementById('ownerAddress').value = c.ownerAddress || '';
+    toggleOwnerSameAsUser();
+
+    // 車両情報
     document.getElementById('plateRegion').value = c.plateRegion || '';
     document.getElementById('plateClass').value = c.plateClass || '';
     document.getElementById('plateHiragana').value = c.plateHiragana || '';
@@ -326,10 +348,13 @@ function calculateTotals() {
 // フォームクリア
 function clearForm() {
     if (!confirm('入力内容をすべてクリアしますか？')) return;
-    ['customerName', 'customerNameKana', 'customerAddress', 'customerTel', 'customerEmail',
+    ['userName', 'userNameKana', 'userAddress', 'userTel', 'userEmail',
+        'ownerName', 'ownerAddress',
         'plateRegion', 'plateClass', 'plateHiragana', 'plateSerial', 'carName', 'carModel',
-        'chassisNumber', 'firstRegistration', 'mileage', 'notes'].forEach(id =>
-            document.getElementById(id).value = '');
+        'chassisNumber', 'firstRegistration', 'mileage', 'notes'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
     document.getElementById('vehicleWeight').value = '';
     document.getElementById('vehicleAge').value = 'normal';
     document.getElementById('useOSS').checked = true;
@@ -355,9 +380,12 @@ function generatePreviewHtml() {
     const companyName = document.getElementById('companyName').value || '○○自動車整備';
     const companyAddress = document.getElementById('companyAddress').value || '';
     const companyTel = document.getElementById('companyTel').value || '';
-    const customerName = document.getElementById('customerName').value || '';
-    const customerAddress = document.getElementById('customerAddress').value || '';
-    const customerTel = document.getElementById('customerTel').value || '';
+    const userName = document.getElementById('userName').value || '';
+    const userAddress = document.getElementById('userAddress').value || '';
+    const userTel = document.getElementById('userTel').value || '';
+    const ownerName = document.getElementById('ownerName').value || '';
+    const ownerAddress = document.getElementById('ownerAddress').value || '';
+    const ownerSameAsUser = document.getElementById('ownerSameAsUser').checked;
     const plate = getPlateNumber();
     const carName = document.getElementById('carName').value || '';
     const carModel = document.getElementById('carModel').value || '';
@@ -385,11 +413,12 @@ function generatePreviewHtml() {
             <div class="preview-title">◆ 車検見積書 ◆</div>
             <div class="preview-date">発行日: ${dateStr}</div>
             
-            <div class="preview-section">👤 お客様情報</div>
+            <div class="preview-section">👤 お客様情報（使用者）</div>
             <div class="preview-info">
-                <div class="preview-info-item"><span class="label">お名前</span><span class="value"><strong>${escapeHtml(customerName)}</strong> 様</span></div>
-                <div class="preview-info-item"><span class="label">電話番号</span><span class="value">${escapeHtml(customerTel)}</span></div>
-                <div class="preview-info-item" style="grid-column:1/-1"><span class="label">ご住所</span><span class="value">${escapeHtml(customerAddress)}</span></div>
+                <div class="preview-info-item"><span class="label">使用者</span><span class="value"><strong>${escapeHtml(userName)}</strong> 様</span></div>
+                <div class="preview-info-item"><span class="label">電話番号</span><span class="value">${escapeHtml(userTel)}</span></div>
+                <div class="preview-info-item" style="grid-column:1/-1"><span class="label">住所</span><span class="value">${escapeHtml(userAddress)}</span></div>
+                ${!ownerSameAsUser ? `<div class="preview-info-item" style="grid-column:1/-1"><span class="label">所有者</span><span class="value">${escapeHtml(ownerName)} (${escapeHtml(ownerAddress)})</span></div>` : ''}
             </div>
             
             <div class="preview-section">🚙 車両情報</div>
@@ -445,4 +474,373 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// =============================================
+// 顧客データのファイル保存・読み込み機能
+// =============================================
+
+// 顧客データをJSONファイルとしてエクスポート
+function exportCustomersToFile() {
+    if (savedCustomers.length === 0) {
+        alert('保存された顧客データがありません');
+        return;
+    }
+
+    const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        customers: savedCustomers
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '車検見積り顧客.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    alert(`${savedCustomers.length}件の顧客データをエクスポートしました`);
+}
+
+// JSONファイルから顧客データをインポート
+function importCustomersFromFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+
+                if (!data.customers || !Array.isArray(data.customers)) {
+                    alert('無効なファイル形式です');
+                    return;
+                }
+
+                const importCount = data.customers.length;
+                let addedCount = 0;
+                let updatedCount = 0;
+
+                data.customers.forEach(c => {
+                    const idx = savedCustomers.findIndex(x =>
+                        x.plateRegion === c.plateRegion &&
+                        x.plateClass === c.plateClass &&
+                        x.plateHiragana === c.plateHiragana &&
+                        x.plateSerial === c.plateSerial
+                    );
+                    if (idx >= 0) {
+                        savedCustomers[idx] = c;
+                        updatedCount++;
+                    } else {
+                        savedCustomers.push(c);
+                        addedCount++;
+                    }
+                });
+
+                localStorage.setItem(STORAGE_CUSTOMERS, JSON.stringify(savedCustomers));
+                alert(`インポート完了\n新規追加: ${addedCount}件\n更新: ${updatedCount}件`);
+                renderCustomerList();
+            } catch (err) {
+                alert('ファイルの読み込みに失敗しました: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+// =============================================
+// 車検証QRコード読み取り機能
+// =============================================
+
+let qrScanner = null;
+
+// QRコードスキャナーモーダルを表示
+function showQRScannerModal() {
+    document.getElementById('qrScannerModal').classList.add('active');
+    startQRScanner();
+}
+
+// QRコードスキャナーモーダルを閉じる
+function closeQRScannerModal() {
+    stopQRScanner();
+    document.getElementById('qrScannerModal').classList.remove('active');
+}
+
+// QRコードスキャナーを開始
+async function startQRScanner() {
+    const video = document.getElementById('qrVideo');
+    const statusEl = document.getElementById('qrStatus');
+
+    try {
+        statusEl.textContent = 'カメラを起動中...';
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' }
+        });
+
+        video.srcObject = stream;
+        video.play();
+        statusEl.textContent = '車検証のQRコードをカメラに向けてください';
+
+        // QRコード読み取りループ
+        qrScanner = setInterval(() => {
+            scanQRCode(video);
+        }, 500);
+
+    } catch (err) {
+        statusEl.textContent = 'カメラにアクセスできません: ' + err.message;
+        console.error('Camera error:', err);
+    }
+}
+
+// QRコードスキャナーを停止
+function stopQRScanner() {
+    if (qrScanner) {
+        clearInterval(qrScanner);
+        qrScanner = null;
+    }
+    const video = document.getElementById('qrVideo');
+    if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+    }
+}
+
+// QRコードをスキャン
+function scanQRCode(video) {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // jsQR ライブラリを使用（CDNで読み込み）
+    if (typeof jsQR !== 'undefined') {
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code) {
+            processQRCodeData(code.data);
+        }
+    }
+}
+
+// QRコードデータを処理（車検証フォーマット）
+function processQRCodeData(data) {
+    const statusEl = document.getElementById('qrStatus');
+    statusEl.textContent = 'QRコードを検出しました！データを処理中...';
+
+    try {
+        // 車検証QRコードは特定のフォーマット（/区切り）
+        const parts = data.split('/');
+
+        if (parts.length >= 5) {
+            // 車検証QRコードの一般的な構造
+            // [0]: 登録番号地域
+            // [1]: 分類番号
+            // [2]: ひらがな
+            // [3]: 一連番号
+            // [4]: 車体番号
+            // [5]: 初度登録年月
+            // 等（バリエーションあり）
+
+            autoFillFromQRData(parts);
+            stopQRScanner();
+            closeQRScannerModal();
+            alert('車検証データを読み取りました！');
+        } else {
+            // JSONフォーマット（電子車検証からのエクスポート）
+            try {
+                const jsonData = JSON.parse(data);
+                autoFillFromJSONData(jsonData);
+                stopQRScanner();
+                closeQRScannerModal();
+                alert('車検証データを読み取りました！');
+            } catch {
+                statusEl.textContent = '車検証のQRコードを読み取ってください';
+            }
+        }
+    } catch (err) {
+        console.error('QR parse error:', err);
+        statusEl.textContent = 'QRコードの解析に失敗しました';
+    }
+}
+
+// QRコードデータから自動入力（従来型車検証）
+function autoFillFromQRData(parts) {
+    // パーツの数に応じて適切にマッピング
+    if (parts[0]) document.getElementById('plateRegion').value = parts[0];
+    if (parts[1]) document.getElementById('plateClass').value = parts[1];
+    if (parts[2]) document.getElementById('plateHiragana').value = parts[2];
+    if (parts[3]) document.getElementById('plateSerial').value = parts[3];
+    if (parts[4]) document.getElementById('chassisNumber').value = parts[4];
+    if (parts[5]) document.getElementById('firstRegistration').value = parts[5];
+
+    // 重量情報があれば設定
+    if (parts.length > 6 && parts[6]) {
+        const weight = parseInt(parts[6]);
+        if (!isNaN(weight)) {
+            document.getElementById('vehicleWeight').value = weight;
+            updateLegalFees();
+        }
+    }
+}
+
+// JSONデータから自動入力（電子車検証エクスポート）
+function autoFillFromJSONData(data) {
+    // 電子車検証閲覧アプリからのエクスポート形式に対応
+
+    // ナンバープレート
+    if (data.registrationNumber) {
+        const parts = data.registrationNumber.split(' ');
+        if (parts[0]) document.getElementById('plateRegion').value = parts[0];
+        if (parts[1]) document.getElementById('plateClass').value = parts[1];
+        if (parts[2]) document.getElementById('plateHiragana').value = parts[2];
+        if (parts[3]) document.getElementById('plateSerial').value = parts[3];
+    }
+
+    // 車両情報
+    if (data.chassisNumber) document.getElementById('chassisNumber').value = data.chassisNumber;
+    if (data.firstRegistrationDate) document.getElementById('firstRegistration').value = data.firstRegistrationDate;
+    if (data.vehicleWeight) {
+        document.getElementById('vehicleWeight').value = data.vehicleWeight;
+        updateLegalFees();
+    }
+    if (data.vehicleName) document.getElementById('carName').value = data.vehicleName;
+    if (data.modelCode) document.getElementById('carModel').value = data.modelCode;
+
+    // 使用者情報（車検証：使用者欄）
+    if (data.userName) {
+        document.getElementById('userName').value = data.userName;
+    }
+    if (data.userAddress) {
+        document.getElementById('userAddress').value = data.userAddress;
+    }
+
+    // 所有者情報（車検証：所有者欄）
+    if (data.ownerName) {
+        document.getElementById('ownerName').value = data.ownerName;
+        // 所有者と使用者が同じかチェック
+        if (data.userName && data.ownerName === data.userName) {
+            document.getElementById('ownerSameAsUser').checked = true;
+        } else {
+            document.getElementById('ownerSameAsUser').checked = false;
+        }
+        toggleOwnerSameAsUser();
+    }
+    if (data.ownerAddress) {
+        document.getElementById('ownerAddress').value = data.ownerAddress;
+    }
+
+    // 使用者が未設定なら所有者を使用者にもコピー（従来データ形式の互換性）
+    if (!data.userName && data.ownerName) {
+        document.getElementById('userName').value = data.ownerName;
+    }
+    if (!data.userAddress && data.ownerAddress) {
+        document.getElementById('userAddress').value = data.ownerAddress;
+    }
+}
+
+// 電子車検証JSONファイルをインポート
+function importVehicleCertificateJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.csv';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                if (file.name.endsWith('.csv')) {
+                    // CSV形式（車検証閲覧アプリから出力）
+                    parseVehicleCertificateCSV(event.target.result);
+                } else {
+                    // JSON形式
+                    const data = JSON.parse(event.target.result);
+                    autoFillFromJSONData(data);
+                    alert('車検証データを読み込みました！');
+                }
+            } catch (err) {
+                alert('ファイルの読み込みに失敗しました: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+// CSV形式の車検証データをパース
+function parseVehicleCertificateCSV(csvText) {
+    const lines = csvText.split('\n');
+    if (lines.length < 2) {
+        alert('CSVファイルにデータがありません');
+        return;
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const values = lines[1].split(',').map(v => v.trim().replace(/"/g, ''));
+
+    const data = {};
+    headers.forEach((h, i) => {
+        data[h] = values[i] || '';
+    });
+
+    // よくあるカラム名に対応
+    const mapping = {
+        '自動車登録番号': 'registrationNumber',
+        '登録番号': 'registrationNumber',
+        '車台番号': 'chassisNumber',
+        '車体番号': 'chassisNumber',
+        '初度登録年月': 'firstRegistrationDate',
+        '車両重量': 'vehicleWeight',
+        '車名': 'vehicleName',
+        '型式': 'modelCode',
+        '所有者氏名': 'ownerName',
+        '所有者名称': 'ownerName',
+        '所有者住所': 'ownerAddress',
+        '使用者氏名': 'userName',
+        '使用者名称': 'userName',
+        '使用者住所': 'userAddress'
+    };
+
+    const normalizedData = {};
+    for (const [key, value] of Object.entries(data)) {
+        if (mapping[key]) {
+            normalizedData[mapping[key]] = value;
+        }
+    }
+
+    autoFillFromJSONData(normalizedData);
+    alert('車検証CSVデータを読み込みました！');
+}
+
+// 所有者「使用者と同じ」チェックボックスの切り替え
+function toggleOwnerSameAsUser() {
+    const checkbox = document.getElementById('ownerSameAsUser');
+    const ownerFields = document.getElementById('ownerFields');
+
+    if (checkbox.checked) {
+        ownerFields.style.display = 'none';
+        // 使用者の情報を所有者にコピー
+        document.getElementById('ownerName').value = document.getElementById('userName').value;
+        document.getElementById('ownerAddress').value = document.getElementById('userAddress').value;
+    } else {
+        ownerFields.style.display = 'block';
+    }
+}
+
+// プレビュー用に使用者名を取得（従来のcustomerName互換）
+function getCustomerNameForPreview() {
+    return document.getElementById('userName').value || '';
 }
