@@ -933,3 +933,305 @@ function toggleOwnerSameAsUser() {
 function getCustomerNameForPreview() {
     return document.getElementById('userName').value || '';
 }
+
+// =============================================
+// 車検満了日の自動計算機能
+// =============================================
+
+function calculateShakenExpiry() {
+    const firstReg = document.getElementById('firstRegistration').value;
+    const shakenType = document.getElementById('shakenType').value;
+    const displayEl = document.getElementById('shakenExpiryDisplay');
+
+    if (!firstReg) {
+        displayEl.textContent = '初度登録を入力してください';
+        displayEl.style.background = 'linear-gradient(135deg,#f5f5f5,#e0e0e0)';
+        displayEl.style.color = '#666';
+        return null;
+    }
+
+    // 日付形式（YYYY-MM-DD）または月形式（YYYY-MM）に対応
+    let regDate;
+    if (firstReg.length === 7) {
+        // YYYY-MM形式の場合
+        regDate = new Date(firstReg + '-01');
+    } else {
+        // YYYY-MM-DD形式の場合
+        regDate = new Date(firstReg);
+    }
+    let expiryDate;
+    const now = new Date();
+
+    if (shakenType === 'new') {
+        // 新車は初度登録から3年後
+        expiryDate = new Date(regDate.getFullYear() + 3, regDate.getMonth(), regDate.getDate());
+    } else {
+        // 継続車検は初度登録から2年後（次回車検満了日の目安）
+        expiryDate = new Date(regDate.getFullYear() + 2, regDate.getMonth(), regDate.getDate());
+    }
+
+    // 満了日の前日（車検証記載の満了日）
+    expiryDate.setDate(expiryDate.getDate() - 1);
+
+    const expiryStr = `${expiryDate.getFullYear()}年${expiryDate.getMonth() + 1}月${expiryDate.getDate()}日`;
+    const daysUntil = Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000));
+
+    // 新車か継続かのラベル
+    const typeLabel = shakenType === 'new' ? '(初回3年)' : '(継続2年)';
+
+    if (daysUntil < 0) {
+        displayEl.innerHTML = `<span style="color:#d32f2f;">⚠️ ${expiryStr}<br><small>（期限切れ）${typeLabel}</small></span>`;
+        displayEl.style.background = 'linear-gradient(135deg,#ffebee,#ffcdd2)';
+    } else if (daysUntil <= 30) {
+        displayEl.innerHTML = `<span style="color:#f57c00;">⚡ ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small></span>`;
+        displayEl.style.background = 'linear-gradient(135deg,#fff3e0,#ffe0b2)';
+    } else {
+        displayEl.innerHTML = `✅ ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small>`;
+        displayEl.style.background = 'linear-gradient(135deg,#e8f5e9,#c8e6c9)';
+        displayEl.style.color = '#2e7d32';
+    }
+
+    return expiryDate;
+}
+
+// =============================================
+// 領収書・請求書モード（プレビュー生成の拡張）
+// =============================================
+
+function getDocumentTypeInfo() {
+    const docType = document.getElementById('documentType').value;
+    const types = {
+        estimate: { title: '車検見積書', icon: '📝', suffix: '御見積金額' },
+        invoice: { title: '車検請求書', icon: '📄', suffix: 'ご請求金額' },
+        receipt: { title: '車検領収書', icon: '🧾', suffix: '領収金額' }
+    };
+    return types[docType] || types.estimate;
+}
+
+// generatePreviewHtmlを上書きして領収書/請求書に対応
+const originalGeneratePreviewHtml = generatePreviewHtml;
+generatePreviewHtml = function () {
+    const docInfo = getDocumentTypeInfo();
+    const originalHtml = originalGeneratePreviewHtml();
+
+    // タイトルを置き換え
+    let html = originalHtml.replace('◆ 車検見積書 ◆', `◆ ${docInfo.title} ◆`);
+
+    // 請求書の場合：支払期限を追加
+    if (document.getElementById('documentType').value === 'invoice') {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 14); // 2週間後
+        const dueDateStr = `${dueDate.getFullYear()}年${dueDate.getMonth() + 1}月${dueDate.getDate()}日`;
+        html = html.replace('発行日:', `お支払期限: ${dueDateStr}<br>発行日:`);
+    }
+
+    // 領収書の場合：領収文言を追加
+    if (document.getElementById('documentType').value === 'receipt') {
+        html = html.replace('💰 お支払い総額:', '💰 領収金額:');
+        html = html.replace('</div>\n            \n            <div class="preview-stamps">',
+            '</div>\n            <div style="text-align:center;margin:20px 0;padding:12px;background:#e8f5e9;border-radius:8px;"><strong>上記金額を正に領収いたしました</strong></div>\n            <div class="preview-stamps">');
+    }
+
+    return html;
+};
+
+// =============================================
+// 車検期限リマインダー一覧
+// =============================================
+
+function showReminderModal() {
+    renderReminderList();
+    document.getElementById('reminderModal').classList.add('active');
+}
+
+function closeReminderModal() {
+    document.getElementById('reminderModal').classList.remove('active');
+}
+
+function renderReminderList() {
+    const container = document.getElementById('reminderListItems');
+
+    if (savedCustomers.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;padding:40px;">保存された顧客データがありません</div>';
+        return;
+    }
+
+    // 車検満了日を計算してソート
+    const customersWithExpiry = savedCustomers.map(c => {
+        const expiry = calculateExpiryForCustomer(c);
+        const daysUntil = expiry ? Math.ceil((expiry - new Date()) / (24 * 60 * 60 * 1000)) : 9999;
+        return { ...c, expiryDate: expiry, daysUntil };
+    }).sort((a, b) => a.daysUntil - b.daysUntil);
+
+    container.innerHTML = customersWithExpiry.map(c => {
+        let statusClass = '';
+        let statusText = '';
+
+        if (c.daysUntil < 0) {
+            statusClass = 'reminder-expired';
+            statusText = `<span style="color:#d32f2f;font-weight:bold;">期限切れ（${Math.abs(c.daysUntil)}日経過）</span>`;
+        } else if (c.daysUntil <= 30) {
+            statusClass = 'reminder-warning';
+            statusText = `<span style="color:#f57c00;font-weight:bold;">あと${c.daysUntil}日</span>`;
+        } else if (c.daysUntil <= 60) {
+            statusClass = 'reminder-soon';
+            statusText = `<span style="color:#1976d2;">あと${c.daysUntil}日</span>`;
+        } else if (c.expiryDate) {
+            statusText = `あと${c.daysUntil}日`;
+        } else {
+            statusText = '<span style="color:#999;">登録情報不足</span>';
+        }
+
+        const expiryStr = c.expiryDate
+            ? `${c.expiryDate.getFullYear()}/${c.expiryDate.getMonth() + 1}/${c.expiryDate.getDate()}`
+            : '不明';
+
+        return `
+            <div class="reminder-item ${statusClass}" style="padding:12px;margin-bottom:8px;background:#f8f9fa;border-radius:8px;border-left:4px solid ${c.daysUntil < 0 ? '#d32f2f' : c.daysUntil <= 30 ? '#f57c00' : '#4caf50'};">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                    <div>
+                        <strong>${escapeHtml(c.userName || c.customerName || '名前未登録')}</strong>
+                        <div style="font-size:0.85em;color:#666;">
+                            🚗 ${c.plateRegion} ${c.plateClass} ${c.plateHiragana} ${c.plateSerial} | ${escapeHtml(c.carName || '')}
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:0.85em;color:#666;">満了日: ${expiryStr}</div>
+                        <div>${statusText}</div>
+                    </div>
+                    <button class="btn btn-primary" onclick="loadCustomerData(${c.id}); closeReminderModal();" style="font-size:0.85em;padding:6px 12px;">
+                        読み込む
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function calculateExpiryForCustomer(customer) {
+    if (!customer.firstRegistration) return null;
+
+    const regDate = new Date(customer.firstRegistration + '-01');
+    const now = new Date();
+    const yearsElapsed = Math.floor((now - regDate) / (365.25 * 24 * 60 * 60 * 1000));
+
+    let expiryDate;
+    if (yearsElapsed < 3) {
+        expiryDate = new Date(regDate.getFullYear() + 3, regDate.getMonth(), regDate.getDate());
+    } else {
+        const periodsAfterFirst = Math.floor((yearsElapsed - 3) / 2) + 1;
+        expiryDate = new Date(regDate.getFullYear() + 3 + (periodsAfterFirst * 2), regDate.getMonth(), regDate.getDate());
+    }
+    expiryDate.setDate(expiryDate.getDate() - 1);
+
+    return expiryDate;
+}
+
+// =============================================
+// LINEで見積書を共有
+// =============================================
+
+function shareToLine() {
+    const docInfo = getDocumentTypeInfo();
+    const userName = document.getElementById('userName').value || 'お客様';
+    const plate = getPlateNumber();
+    const grand = document.getElementById('grandTotal').textContent;
+    const carName = document.getElementById('carName').value || '';
+    const companyName = document.getElementById('companyName').value || '';
+
+    // 車検満了日
+    const expiryEl = document.getElementById('shakenExpiryDisplay');
+    const expiryText = expiryEl ? expiryEl.innerText.replace(/\n/g, ' ') : '';
+
+    const message = `【${docInfo.title}】
+
+${userName} 様
+
+🚗 車両情報
+ナンバー: ${plate}
+車名: ${carName}
+${expiryText ? `車検満了日: ${expiryText}` : ''}
+
+💰 ${docInfo.suffix}: ${grand}
+
+${companyName}より`;
+
+    // モバイル判定
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (isMobile) {
+        // スマホの場合はLINEアプリを開く
+        const lineUrl = `https://line.me/R/share?text=${encodeURIComponent(message)}`;
+        window.open(lineUrl, '_blank');
+    } else {
+        // PCの場合はクリップボードにコピー
+        navigator.clipboard.writeText(message).then(() => {
+            alert('📋 見積内容をクリップボードにコピーしました！\n\nLINE PC版を開いて貼り付け（Ctrl+V）してください。\n\n💡 スマートフォンでこのページを開くと、直接LINEで共有できます。');
+        }).catch(() => {
+            // クリップボードAPI非対応の場合
+            const textArea = document.createElement('textarea');
+            textArea.value = message;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('📋 見積内容をクリップボードにコピーしました！\n\nLINE PC版を開いて貼り付け（Ctrl+V）してください。');
+        });
+    }
+}
+
+// 顧客データ保存時に車検満了日も保存
+const originalSaveCustomerData = saveCustomerData;
+saveCustomerData = function () {
+    // 元の保存処理を呼び出し
+    const plate = getPlateNumber();
+    if (plate === '-') { alert('ナンバープレートを入力してください'); return; }
+
+    const ownerSameAsUser = document.getElementById('ownerSameAsUser').checked;
+
+    const data = {
+        id: Date.now(), savedAt: new Date().toISOString(),
+        userName: document.getElementById('userName').value,
+        userNameKana: document.getElementById('userNameKana').value,
+        userAddress: document.getElementById('userAddress').value,
+        userTel: document.getElementById('userTel').value,
+        userEmail: document.getElementById('userEmail').value,
+        ownerSameAsUser: ownerSameAsUser,
+        ownerName: ownerSameAsUser ? '' : document.getElementById('ownerName').value,
+        ownerAddress: ownerSameAsUser ? '' : document.getElementById('ownerAddress').value,
+        plateRegion: document.getElementById('plateRegion').value,
+        plateClass: document.getElementById('plateClass').value,
+        plateHiragana: document.getElementById('plateHiragana').value,
+        plateSerial: document.getElementById('plateSerial').value,
+        carName: document.getElementById('carName').value,
+        carModel: document.getElementById('carModel').value,
+        chassisNumber: document.getElementById('chassisNumber').value,
+        firstRegistration: document.getElementById('firstRegistration').value,
+        mileage: document.getElementById('mileage').value,
+        vehicleWeight: document.getElementById('vehicleWeight').value,
+        vehicleAge: document.getElementById('vehicleAge').value,
+        shakenType: document.getElementById('shakenType').value // 車検区分を追加
+    };
+
+    const idx = savedCustomers.findIndex(c =>
+        c.plateRegion === data.plateRegion && c.plateClass === data.plateClass &&
+        c.plateHiragana === data.plateHiragana && c.plateSerial === data.plateSerial
+    );
+    if (idx >= 0) savedCustomers[idx] = data;
+    else savedCustomers.push(data);
+
+    localStorage.setItem(STORAGE_CUSTOMERS, JSON.stringify(savedCustomers));
+    saveCompanyInfo();
+    alert('顧客データを保存しました');
+};
+
+// 顧客データ読み込み時に車検区分も復元
+const originalLoadCustomerData = loadCustomerData;
+loadCustomerData = function (id) {
+    originalLoadCustomerData(id);
+    const c = savedCustomers.find(x => x.id === id);
+    if (c && c.shakenType) {
+        document.getElementById('shakenType').value = c.shakenType;
+    }
+    calculateShakenExpiry();
+};
