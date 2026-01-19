@@ -21,8 +21,10 @@
 
         <div class="toolbar">
             <button type="button" class="btn btn-outline" onclick="clearForm()">🗑️ クリア</button>
+            <button type="button" class="btn btn-info" onclick="showEstimateHistoryModal()">📊 履歴</button>
+            <button type="button" class="btn btn-secondary" onclick="showTemplateModal()">📋 テンプレート</button>
             <button type="button" class="btn btn-warning" onclick="showReminderModal()">🔔 車検期限</button>
-            <select class="form-control" id="documentType" style="width:auto;min-width:120px;">
+            <select class="form-control" id="documentType" title="書類種別">
                 <option value="estimate">📝 見積書</option>
                 <option value="invoice">📄 請求書</option>
                 <option value="receipt">🧾 領収書</option>
@@ -31,9 +33,15 @@
             <button type="button" class="btn btn-success" onclick="generatePDF()">📄 PDF出力</button>
         </div>
 
+
         <!-- 会社情報 -->
         <div class="card">
-            <div class="card-header">🏢 会社情報</div>
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>🏢 会社情報</span>
+                <button type="button" class="btn btn-sm btn-outline"
+                    style="color:white;border-color:white;padding:4px 8px;" onclick="showThemeSettingsModal()">🎨
+                    デザイン設定</button>
+            </div>
             <div class="card-body">
                 <div class="form-row">
                     <div class="form-group">
@@ -334,9 +342,63 @@
 
         <!-- 備考 -->
         <div class="card">
-            <div class="card-header">📝 備考</div>
+            <div class="card-header">📝 備考・メモ</div>
             <div class="card-body">
-                <textarea class="form-control" id="notes" rows="3" placeholder="追加の整備が必要な場合は別途お見積りいたします。"></textarea>
+                <div class="form-group">
+                    <label>見積書備考（見積書に印刷されます）</label>
+                    <textarea class="form-control" id="notes" rows="3"
+                        placeholder="追加の整備が必要な場合は別途お見積りいたします。"></textarea>
+                </div>
+                <div class="form-group" style="margin-top:15px;border-top:1px dashed #eee;padding-top:15px;">
+                    <label>💬 お客様メモ（社内用・印刷されません）</label>
+                    <textarea class="form-control" id="customerMemo" rows="2"
+                        placeholder="お客様の好み、次回の提案事項など..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: カスタムテーマ設定 -->
+    <div class="modal-overlay" id="themeSettingsModal">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h2>🎨 デザイン設定</h2>
+                <button class="modal-close" onclick="closeThemeSettingsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>テーマカラー</label>
+                    <div class="theme-colors" style="display:flex;gap:10px;margin-top:8px;">
+                        <div class="theme-color-btn active" style="background:#1a5a8a;"
+                            onclick="setThemeColor('#1a5a8a', this)">標準</div>
+                        <div class="theme-color-btn" style="background:#2c3e50;"
+                            onclick="setThemeColor('#2c3e50', this)">ダーク</div>
+                        <div class="theme-color-btn" style="background:#c0392b;"
+                            onclick="setThemeColor('#c0392b', this)">レッド</div>
+                        <div class="theme-color-btn" style="background:#27ae60;"
+                            onclick="setThemeColor('#27ae60', this)">グリーン</div>
+                        <div class="theme-color-btn" style="background:#8e44ad;"
+                            onclick="setThemeColor('#8e44ad', this)">パープル</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>会社ロゴ画像</label>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <input type="file" id="companyLogoInput" accept="image/*" style="display:none"
+                            onchange="handleLogoUpload(this)">
+                        <button class="btn btn-outline btn-sm"
+                            onclick="document.getElementById('companyLogoInput').click()">📷 画像を選択</button>
+                        <button class="btn btn-outline btn-sm" onclick="clearCompanyLogo()"
+                            style="color:#e74c3c;border-color:#e74c3c;">削除</button>
+                    </div>
+                    <div id="companyLogoPreview"
+                        style="margin-top:10px;max-width:200px;border:1px dashed #ddd;padding:5px;display:none;">
+                        <img src="" style="width:100%;height:auto;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="saveThemeSettings()">保存して適用</button>
             </div>
         </div>
     </div>
@@ -427,7 +489,71 @@
         </div>
     </div>
 
+    <!-- モーダル: 見積履歴 -->
+    <div class="modal-overlay" id="estimateHistoryModal">
+        <div class="modal-content" style="max-width:800px;">
+            <div class="modal-header">
+                <h2>📊 見積履歴</h2>
+                <button class="modal-close" onclick="closeEstimateHistoryModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="history-actions" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                    <input type="text" class="form-control" id="estimateHistorySearch"
+                        placeholder="🔍 名前・ナンバー・車名・金額で検索..." oninput="searchEstimateHistory()"
+                        style="flex:1;min-width:200px;">
+                    <button class="btn btn-success" onclick="saveEstimateToHistory()">💾 現在の見積を保存</button>
+                    <button class="btn btn-outline" onclick="saveAsTemplate()">📋 テンプレートとして保存</button>
+                </div>
+                <div class="estimate-history-list" id="estimateHistoryItems" style="max-height:400px;overflow-y:auto;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeEstimateHistoryModal()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: テンプレート -->
+    <div class="modal-overlay" id="templateModal">
+        <div class="modal-content" style="max-width:600px;">
+            <div class="modal-header">
+                <h2>📋 テンプレート一覧</h2>
+                <button class="modal-close" onclick="closeTemplateModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:12px;color:#666;">よく使う整備項目セットをテンプレートとして保存・適用できます</p>
+                <div class="template-list" id="templateListItems" style="max-height:400px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeTemplateModal()">閉じる</button>
+                <button class="btn btn-success" onclick="saveAsTemplate()">💾 現在の整備項目を保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: QRコード -->
+    <div class="modal-overlay" id="qrCodeModal">
+        <div class="modal-content" style="max-width:400px;text-align:center;">
+            <div class="modal-header">
+                <h2>📱 QRコード</h2>
+                <button class="modal-close" onclick="closeQRCodeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:16px;color:#666;">お客様のスマホで読み取ると見積内容を確認できます</p>
+                <div id="qrCodeDisplay"
+                    style="display:inline-block;padding:16px;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                </div>
+                <pre id="qrCodeText"
+                    style="margin-top:16px;padding:12px;background:#f5f5f5;border-radius:8px;text-align:left;white-space:pre-wrap;font-size:0.85em;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeQRCodeModal()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="js/data.js"></script>
     <script src="js/cardb.js"></script>
     <script src="js/main.js"></script>
