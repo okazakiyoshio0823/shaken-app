@@ -204,16 +204,22 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>車検区分</label>
-                        <select class="form-control" id="shakenType" onchange="calculateShakenExpiry()">
+                        <select class="form-control" id="shakenType" onchange="updateShakenExpiryDisplay()">
                             <option value="new">新車（初回3年）</option>
                             <option value="continue" selected>継続車検（2年）</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>車検満了日</label>
+                        <label>車検満了日（直接入力）</label>
+                        <input type="date" class="form-control" id="shakenExpiryDate"
+                            onchange="updateShakenExpiryDisplay()">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="width:100%;">
                         <div class="shaken-expiry-display" id="shakenExpiryDisplay"
                             style="padding:12px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-radius:8px;text-align:center;font-weight:bold;color:#2e7d32;">
-                            初度登録を入力してください
+                            車検満了日を入力してください
                         </div>
                     </div>
                 </div>

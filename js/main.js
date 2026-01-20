@@ -157,7 +157,15 @@ function saveCustomerData() {
         firstRegistration: document.getElementById('firstRegistration').value,
         mileage: document.getElementById('mileage').value,
         vehicleWeight: document.getElementById('vehicleWeight').value,
-        vehicleAge: document.getElementById('vehicleAge').value
+        vehicleAge: document.getElementById('vehicleAge').value,
+        // 追加保存項目
+        shakenType: document.getElementById('shakenType').value,
+        shakenExpiryDate: document.getElementById('shakenExpiryDate').value,
+        maintenanceItems: maintenanceItems.slice(),
+        notes: document.getElementById('notes').value,
+        factoryType: document.getElementById('factoryType').value,
+        reservationFee: document.getElementById('reservationFee').value,
+        agencyFee: document.getElementById('agencyFee').value
     };
 
     const idx = savedCustomers.findIndex(c =>
@@ -241,7 +249,24 @@ function loadCustomerData(id) {
     document.getElementById('mileage').value = c.mileage || '';
     document.getElementById('vehicleWeight').value = c.vehicleWeight || '';
     document.getElementById('vehicleAge').value = c.vehicleAge || 'normal';
+
+    // 追加項目の読み込み
+    document.getElementById('shakenType').value = c.shakenType || 'continue';
+    document.getElementById('shakenExpiryDate').value = c.shakenExpiryDate || '';
+    document.getElementById('notes').value = c.notes || '';
+    document.getElementById('factoryType').value = c.factoryType || 'designated';
+    document.getElementById('reservationFee').value = c.reservationFee || '';
+    document.getElementById('agencyFee').value = c.agencyFee || '';
+
+    // 整備項目の復元
+    if (c.maintenanceItems && Array.isArray(c.maintenanceItems)) {
+        maintenanceItems = c.maintenanceItems.slice();
+        renderMaintenanceTable();
+        calculateTotals();
+    }
+
     updateLegalFees();
+    updateShakenExpiryDisplay();
     closeCustomerListModal();
 }
 
@@ -1003,6 +1028,45 @@ function calculateShakenExpiry() {
     }
 
     return expiryDate;
+}
+
+// 車検満了日表示更新（直接入力を使用）
+function updateShakenExpiryDisplay() {
+    const shakenExpiryDate = document.getElementById('shakenExpiryDate').value;
+    const shakenType = document.getElementById('shakenType').value;
+    const displayEl = document.getElementById('shakenExpiryDisplay');
+
+    if (!shakenExpiryDate) {
+        displayEl.innerHTML = '車検満了日を入力してください';
+        displayEl.style.background = 'linear-gradient(135deg,#f5f5f5,#e0e0e0)';
+        displayEl.style.color = '#666';
+        return;
+    }
+
+    const expiryDate = new Date(shakenExpiryDate);
+    const now = new Date();
+    const daysUntil = Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000));
+
+    const expiryStr = `${expiryDate.getFullYear()}年${expiryDate.getMonth() + 1}月${expiryDate.getDate()}日`;
+    const typeLabel = shakenType === 'new' ? '(初回車検)' : '(継続車検)';
+
+    if (daysUntil < 0) {
+        displayEl.innerHTML = `<span style="color:#d32f2f;">⚠️ ${expiryStr}<br><small>（期限切れ）${typeLabel}</small></span>`;
+        displayEl.style.background = 'linear-gradient(135deg,#ffebee,#ffcdd2)';
+        displayEl.style.color = '#d32f2f';
+    } else if (daysUntil <= 30) {
+        displayEl.innerHTML = `<span style="color:#f57c00;">⚡ ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small></span>`;
+        displayEl.style.background = 'linear-gradient(135deg,#fff3e0,#ffe0b2)';
+        displayEl.style.color = '#f57c00';
+    } else if (daysUntil <= 60) {
+        displayEl.innerHTML = `<span style="color:#ffa000;">📅 ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small></span>`;
+        displayEl.style.background = 'linear-gradient(135deg,#fffde7,#fff9c4)';
+        displayEl.style.color = '#ffa000';
+    } else {
+        displayEl.innerHTML = `✅ ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small>`;
+        displayEl.style.background = 'linear-gradient(135deg,#e8f5e9,#c8e6c9)';
+        displayEl.style.color = '#2e7d32';
+    }
 }
 
 // =============================================
