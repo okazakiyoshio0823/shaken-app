@@ -7,7 +7,7 @@ function generatePDF() {
         return;
     }
 
-    const customerName = document.getElementById('customerName').value || 'お客様';
+    const customerName = document.getElementById('userName').value || 'お客様';
     const today = new Date();
     const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
     const filename = `車検見積書_${customerName}_${dateStr}.pdf`;

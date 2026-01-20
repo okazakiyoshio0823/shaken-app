@@ -24,6 +24,7 @@
             <button type="button" class="btn btn-info" onclick="showEstimateHistoryModal()">📊 履歴</button>
             <button type="button" class="btn btn-secondary" onclick="showTemplateModal()">📋 テンプレート</button>
             <button type="button" class="btn btn-warning" onclick="showReminderModal()">🔔 車検期限</button>
+            <button type="button" class="btn btn-success" onclick="showJsonImportModal()">📥 車検証JSON</button>
             <select class="form-control" id="documentType" title="書類種別">
                 <option value="estimate">📝 見積書</option>
                 <option value="invoice">📄 請求書</option>
@@ -548,6 +549,45 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeQRCodeModal()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON インポートモーダル -->
+    <div class="modal" id="jsonImportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📥 車検証JSON読み込み</h3>
+                <button class="modal-close" onclick="closeJsonImportModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:16px;color:#666;font-size:0.9em;">
+                    📱 iPhoneまたはAndroidの「車検証閲覧アプリ」でICタグを読み取り、<br>
+                    JSONファイルをエクスポートして、ここで読み込みます。
+                </p>
+                <div style="border:2px dashed #ccc;border-radius:8px;padding:24px;text-align:center;margin-bottom:16px;"
+                    id="jsonDropZone">
+                    <p style="color:#666;margin-bottom:12px;">JSONファイルをここにドラッグ＆ドロップ</p>
+                    <p style="color:#999;font-size:0.85em;margin-bottom:12px;">または</p>
+                    <label class="btn btn-primary" style="cursor:pointer;">
+                        📂 ファイルを選択
+                        <input type="file" id="jsonFileInput" accept=".json,application/json" style="display:none;"
+                            onchange="handleJsonFileSelect(event)">
+                    </label>
+                </div>
+                <div id="jsonImportResult"
+                    style="display:none;padding:12px;background:#e8f5e9;border-radius:8px;margin-top:12px;">
+                    <p style="color:#2e7d32;font-weight:600;">✅ 読み込み成功！</p>
+                    <pre id="jsonImportPreview" style="margin-top:8px;font-size:0.85em;white-space:pre-wrap;"></pre>
+                </div>
+                <div id="jsonImportError"
+                    style="display:none;padding:12px;background:#ffebee;border-radius:8px;margin-top:12px;">
+                    <p style="color:#c62828;font-weight:600;">❌ エラー</p>
+                    <p id="jsonImportErrorText" style="color:#c62828;font-size:0.9em;"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeJsonImportModal()">閉じる</button>
             </div>
         </div>
     </div>
