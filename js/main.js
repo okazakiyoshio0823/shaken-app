@@ -1218,6 +1218,22 @@ function shareToLine() {
     const expiryEl = document.getElementById('shakenExpiryDisplay');
     const expiryText = expiryEl ? expiryEl.innerText.replace(/\n/g, ' ') : '';
 
+    // 整備項目リスト
+    let maintenanceText = '';
+    if (maintenanceItems.length > 0) {
+        maintenanceText = '\n🔧 整備内容\n';
+        maintenanceItems.forEach(item => {
+            maintenanceText += `・${item.name} ×${item.qty} ¥${item.taxIncludedPrice.toLocaleString()}\n`;
+        });
+        const maintTotal = maintenanceItems.reduce((sum, i) => sum + i.taxIncludedPrice, 0);
+        maintenanceText += `整備費用 小計: ¥${maintTotal.toLocaleString()}\n`;
+    }
+
+    // 法定費用
+    const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
+    const agency = parseInt(document.getElementById('agencyFee').value) || 0;
+    const legalFeeText = `\n📜 法定費用\n・重量税 ¥${currentLegalFees.weightTax.toLocaleString()}\n・自賠責 ¥${currentLegalFees.jibaiseki.toLocaleString()}\n・印紙代 ¥${currentLegalFees.stamp.toLocaleString()}\n・予備検査料 ¥${reserve.toLocaleString()}\n・代行手数料 ¥${agency.toLocaleString()}\n法定費用 合計: ¥${(currentLegalFees.weightTax + currentLegalFees.jibaiseki + currentLegalFees.stamp + reserve + agency).toLocaleString()}\n`;
+
     const message = `【${docInfo.title}】
 
 ${userName} 様
@@ -1226,8 +1242,10 @@ ${userName} 様
 ナンバー: ${plate}
 車名: ${carName}
 ${expiryText ? `車検満了日: ${expiryText}` : ''}
-
+${maintenanceText}${legalFeeText}
+━━━━━━━━━━━━━━━
 💰 ${docInfo.suffix}: ${grand}
+━━━━━━━━━━━━━━━
 
 ${companyName}より`;
 
