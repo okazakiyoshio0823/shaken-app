@@ -462,21 +462,43 @@ function calculateTotals() {
 // フォームクリア
 function clearForm() {
     if (!confirm('入力内容をすべてクリアしますか？')) return;
-    ['userName', 'userNameKana', 'userAddress', 'userTel', 'userEmail',
+
+    // 基本的な入力項目をクリア
+    const ids = [
+        'userName', 'userNameKana', 'userAddress', 'userTel', 'userEmail',
         'ownerName', 'ownerAddress',
-        'plateRegion', 'plateClass', 'plateHiragana', 'plateSerial', 'carName', 'carModel',
-        'chassisNumber', 'firstRegistration', 'mileage', 'notes'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-    document.getElementById('vehicleWeight').value = '';
-    document.getElementById('vehicleAge').value = 'normal';
-    document.getElementById('useOSS').checked = true;
-    document.getElementById('reservationFee').value = '2200';
-    document.getElementById('agencyFee').value = '11000';
+        'plateRegion', 'plateClass', 'plateHiragana', 'plateSerial',
+        'carMaker', 'carName', 'carModel', 'chassisNumber', 'firstRegistration',
+        'shakenExpiryDate', 'mileage', 'notes', 'customerMemo',
+        'reservationFee', 'agencyFee', 'newItemName', 'newItemQty', 'newItemPrice'
+    ];
+
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    // セレクトボックス・チェックボックスの初期化
+    if (document.getElementById('vehicleWeight')) document.getElementById('vehicleWeight').value = '';
+    if (document.getElementById('vehicleAge')) document.getElementById('vehicleAge').value = 'normal';
+    if (document.getElementById('useOSS')) document.getElementById('useOSS').checked = true;
+    if (document.getElementById('ownerSameAsUser')) {
+        document.getElementById('ownerSameAsUser').checked = true;
+        toggleOwnerSameAsUser(); // 所有者欄の非表示反映
+    }
+    if (document.getElementById('shakenType')) document.getElementById('shakenType').value = 'continue';
+    if (document.getElementById('factoryType')) document.getElementById('factoryType').value = 'designated';
+    if (document.getElementById('carMaker')) document.getElementById('carMaker').value = '';
+
+    // 整備項目リストを空に
     maintenanceItems = [];
     renderMaintenanceTable();
-    updateLegalFees();
+    calculateTotals();
+
+    // 車検満了日表示のリセット
+    if (typeof updateShakenExpiryDisplay === 'function') {
+        updateShakenExpiryDisplay();
+    }
 }
 
 // プレビュー
@@ -1378,6 +1400,7 @@ function getCurrentEstimateData() {
         factoryType: document.getElementById('factoryType').value,
         useOSS: document.getElementById('useOSS').checked,
         shakenType: document.getElementById('shakenType').value,
+        shakenExpiryDate: document.getElementById('shakenExpiryDate').value,
         // 法定費用
         reservationFee: document.getElementById('reservationFee').value,
         agencyFee: document.getElementById('agencyFee').value,
@@ -1515,6 +1538,9 @@ function loadEstimateFromHistory(id) {
     document.getElementById('factoryType').value = d.factoryType || 'designated';
     document.getElementById('useOSS').checked = d.useOSS !== false;
     document.getElementById('shakenType').value = d.shakenType || 'continue';
+    if (document.getElementById('shakenExpiryDate')) {
+        document.getElementById('shakenExpiryDate').value = d.shakenExpiryDate || '';
+    }
 
     // 法定費用
     document.getElementById('reservationFee').value = d.reservationFee || '2200';
@@ -1533,8 +1559,11 @@ function loadEstimateFromHistory(id) {
     // 書類種別
     document.getElementById('documentType').value = d.documentType || 'estimate';
 
+    // 表示更新
+    if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
     updateLegalFees();
     calculateShakenExpiry();
+    calculateTotals();
     closeEstimateHistoryModal();
     alert('✅ 見積を読み込みました');
 }
