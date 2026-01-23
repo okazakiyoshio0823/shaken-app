@@ -1440,24 +1440,13 @@ function saveEstimateToHistory() {
     if (savedEstimates.length > 100) savedEstimates.pop(); // 最大100件
 
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
+    alert('✅ 見積を履歴に保存しました。PDFを作成します...');
 
-    // ローカルファイルとしてダウンロード
-    try {
-        const fileName = `見積_${data.userName || '未登録'}_${plate.replace(/\s+/g, '')}_${new Date().toISOString().slice(0, 10)}.json`;
-        const blob = new Blob([JSON.stringify(estimate, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        alert('✅ 見積を履歴に保存し、ファイルとしてダウンロードしました');
-    } catch (e) {
-        console.error('Download failed:', e);
-        alert('✅ 見積を履歴に保存しました（ダウンロードに失敗しました）');
-    }
+    // PDFとして保存（プレビューを表示してから保存）
+    setTimeout(() => {
+        // 現在の入力内容を確実に反映するために少し待機
+        generatePDF();
+    }, 500);
 }
 
 // 見積履歴モーダルを表示
