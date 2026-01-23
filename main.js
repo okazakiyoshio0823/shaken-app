@@ -1440,25 +1440,24 @@ function saveEstimateToHistory() {
     if (savedEstimates.length > 100) savedEstimates.pop(); // 最大100件
 
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
-    
-    // ファイルとしてダウンロード
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
-    const plateForFilename = plate.replace(/\s+/g, ''); // スペースを削除
-    const filename = `見積_${plateForFilename}_${dateStr}.json`;
-    
-    const jsonStr = JSON.stringify(estimate, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    alert('✅ 見積を履歴に保存しました\n📥 ファイルもダウンロードしました');
+
+    // ローカルファイルとしてダウンロード
+    try {
+        const fileName = `見積_${data.userName || '未登録'}_${plate.replace(/\s+/g, '')}_${new Date().toISOString().slice(0, 10)}.json`;
+        const blob = new Blob([JSON.stringify(estimate, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        alert('✅ 見積を履歴に保存し、ファイルとしてダウンロードしました');
+    } catch (e) {
+        console.error('Download failed:', e);
+        alert('✅ 見積を履歴に保存しました（ダウンロードに失敗しました）');
+    }
 }
 
 // 見積履歴モーダルを表示
