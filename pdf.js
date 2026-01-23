@@ -20,10 +20,18 @@ function generatePDF() {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
+    // html2pdfライブラリが読み込まれているかチェック
+    if (typeof html2pdf === 'undefined') {
+        alert('エラー: PDF生成ライブラリ(html2pdf)が読み込まれていません。\nインターネット接続を確認してください。');
+        return;
+    }
+
     html2pdf().set(opt).from(element).save().then(() => {
         console.log('PDF generated:', filename);
+        // 保存完了後にアラートを出す（任意）
+        setTimeout(() => alert('✅ PDFをダウンロードしました'), 1000);
     }).catch(err => {
         console.error('PDF error:', err);
-        alert('PDFの生成に失敗しました');
+        alert('PDFの生成に失敗しました: ' + err.message);
     });
 }
