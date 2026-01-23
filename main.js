@@ -157,7 +157,15 @@ function saveCustomerData() {
         firstRegistration: document.getElementById('firstRegistration').value,
         mileage: document.getElementById('mileage').value,
         vehicleWeight: document.getElementById('vehicleWeight').value,
-        vehicleAge: document.getElementById('vehicleAge').value
+        vehicleAge: document.getElementById('vehicleAge').value,
+        // 追加保存項目
+        shakenType: document.getElementById('shakenType').value,
+        shakenExpiryDate: document.getElementById('shakenExpiryDate').value,
+        maintenanceItems: maintenanceItems.slice(),
+        notes: document.getElementById('notes').value,
+        factoryType: document.getElementById('factoryType').value,
+        reservationFee: document.getElementById('reservationFee').value,
+        agencyFee: document.getElementById('agencyFee').value
     };
 
     const idx = savedCustomers.findIndex(c =>
@@ -241,7 +249,24 @@ function loadCustomerData(id) {
     document.getElementById('mileage').value = c.mileage || '';
     document.getElementById('vehicleWeight').value = c.vehicleWeight || '';
     document.getElementById('vehicleAge').value = c.vehicleAge || 'normal';
+
+    // 追加項目の読み込み
+    document.getElementById('shakenType').value = c.shakenType || 'continue';
+    document.getElementById('shakenExpiryDate').value = c.shakenExpiryDate || '';
+    document.getElementById('notes').value = c.notes || '';
+    document.getElementById('factoryType').value = c.factoryType || 'designated';
+    document.getElementById('reservationFee').value = c.reservationFee || '';
+    document.getElementById('agencyFee').value = c.agencyFee || '';
+
+    // 整備項目の復元
+    if (c.maintenanceItems && Array.isArray(c.maintenanceItems)) {
+        maintenanceItems = c.maintenanceItems.slice();
+        renderMaintenanceTable();
+        calculateTotals();
+    }
+
     updateLegalFees();
+    updateShakenExpiryDisplay();
     closeCustomerListModal();
 }
 
@@ -437,21 +462,43 @@ function calculateTotals() {
 // フォームクリア
 function clearForm() {
     if (!confirm('入力内容をすべてクリアしますか？')) return;
-    ['userName', 'userNameKana', 'userAddress', 'userTel', 'userEmail',
+
+    // 基本的な入力項目をクリア
+    const ids = [
+        'userName', 'userNameKana', 'userAddress', 'userTel', 'userEmail',
         'ownerName', 'ownerAddress',
-        'plateRegion', 'plateClass', 'plateHiragana', 'plateSerial', 'carName', 'carModel',
-        'chassisNumber', 'firstRegistration', 'mileage', 'notes'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-    document.getElementById('vehicleWeight').value = '';
-    document.getElementById('vehicleAge').value = 'normal';
-    document.getElementById('useOSS').checked = true;
-    document.getElementById('reservationFee').value = '2200';
-    document.getElementById('agencyFee').value = '11000';
+        'plateRegion', 'plateClass', 'plateHiragana', 'plateSerial',
+        'carMaker', 'carName', 'carModel', 'chassisNumber', 'firstRegistration',
+        'shakenExpiryDate', 'mileage', 'notes', 'customerMemo',
+        'reservationFee', 'agencyFee', 'newItemName', 'newItemQty', 'newItemPrice'
+    ];
+
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    // セレクトボックス・チェックボックスの初期化
+    if (document.getElementById('vehicleWeight')) document.getElementById('vehicleWeight').value = '';
+    if (document.getElementById('vehicleAge')) document.getElementById('vehicleAge').value = 'normal';
+    if (document.getElementById('useOSS')) document.getElementById('useOSS').checked = true;
+    if (document.getElementById('ownerSameAsUser')) {
+        document.getElementById('ownerSameAsUser').checked = true;
+        toggleOwnerSameAsUser(); // 所有者欄の非表示反映
+    }
+    if (document.getElementById('shakenType')) document.getElementById('shakenType').value = 'continue';
+    if (document.getElementById('factoryType')) document.getElementById('factoryType').value = 'designated';
+    if (document.getElementById('carMaker')) document.getElementById('carMaker').value = '';
+
+    // 整備項目リストを空に
     maintenanceItems = [];
     renderMaintenanceTable();
-    updateLegalFees();
+    calculateTotals();
+
+    // 車検満了日表示のリセット
+    if (typeof updateShakenExpiryDisplay === 'function') {
+        updateShakenExpiryDisplay();
+    }
 }
 
 // プレビュー
@@ -1005,6 +1052,45 @@ function calculateShakenExpiry() {
     return expiryDate;
 }
 
+// 車検満了日表示更新（直接入力を使用）
+function updateShakenExpiryDisplay() {
+    const shakenExpiryDate = document.getElementById('shakenExpiryDate').value;
+    const shakenType = document.getElementById('shakenType').value;
+    const displayEl = document.getElementById('shakenExpiryDisplay');
+
+    if (!shakenExpiryDate) {
+        displayEl.innerHTML = '車検満了日を入力してください';
+        displayEl.style.background = 'linear-gradient(135deg,#f5f5f5,#e0e0e0)';
+        displayEl.style.color = '#666';
+        return;
+    }
+
+    const expiryDate = new Date(shakenExpiryDate);
+    const now = new Date();
+    const daysUntil = Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000));
+
+    const expiryStr = `${expiryDate.getFullYear()}年${expiryDate.getMonth() + 1}月${expiryDate.getDate()}日`;
+    const typeLabel = shakenType === 'new' ? '(初回車検)' : '(継続車検)';
+
+    if (daysUntil < 0) {
+        displayEl.innerHTML = `<span style="color:#d32f2f;">⚠️ ${expiryStr}<br><small>（期限切れ）${typeLabel}</small></span>`;
+        displayEl.style.background = 'linear-gradient(135deg,#ffebee,#ffcdd2)';
+        displayEl.style.color = '#d32f2f';
+    } else if (daysUntil <= 30) {
+        displayEl.innerHTML = `<span style="color:#f57c00;">⚡ ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small></span>`;
+        displayEl.style.background = 'linear-gradient(135deg,#fff3e0,#ffe0b2)';
+        displayEl.style.color = '#f57c00';
+    } else if (daysUntil <= 60) {
+        displayEl.innerHTML = `<span style="color:#ffa000;">📅 ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small></span>`;
+        displayEl.style.background = 'linear-gradient(135deg,#fffde7,#fff9c4)';
+        displayEl.style.color = '#ffa000';
+    } else {
+        displayEl.innerHTML = `✅ ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small>`;
+        displayEl.style.background = 'linear-gradient(135deg,#e8f5e9,#c8e6c9)';
+        displayEl.style.color = '#2e7d32';
+    }
+}
+
 // =============================================
 // 領収書・請求書モード（プレビュー生成の拡張）
 // =============================================
@@ -1154,6 +1240,22 @@ function shareToLine() {
     const expiryEl = document.getElementById('shakenExpiryDisplay');
     const expiryText = expiryEl ? expiryEl.innerText.replace(/\n/g, ' ') : '';
 
+    // 整備項目リスト
+    let maintenanceText = '';
+    if (maintenanceItems.length > 0) {
+        maintenanceText = '\n🔧 整備内容\n';
+        maintenanceItems.forEach(item => {
+            maintenanceText += `・${item.name} ×${item.qty} ¥${item.taxIncludedPrice.toLocaleString()}\n`;
+        });
+        const maintTotal = maintenanceItems.reduce((sum, i) => sum + i.taxIncludedPrice, 0);
+        maintenanceText += `整備費用 小計: ¥${maintTotal.toLocaleString()}\n`;
+    }
+
+    // 法定費用
+    const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
+    const agency = parseInt(document.getElementById('agencyFee').value) || 0;
+    const legalFeeText = `\n📜 法定費用\n・重量税 ¥${currentLegalFees.weightTax.toLocaleString()}\n・自賠責 ¥${currentLegalFees.jibaiseki.toLocaleString()}\n・印紙代 ¥${currentLegalFees.stamp.toLocaleString()}\n・予備検査料 ¥${reserve.toLocaleString()}\n・代行手数料 ¥${agency.toLocaleString()}\n法定費用 合計: ¥${(currentLegalFees.weightTax + currentLegalFees.jibaiseki + currentLegalFees.stamp + reserve + agency).toLocaleString()}\n`;
+
     const message = `【${docInfo.title}】
 
 ${userName} 様
@@ -1162,8 +1264,10 @@ ${userName} 様
 ナンバー: ${plate}
 車名: ${carName}
 ${expiryText ? `車検満了日: ${expiryText}` : ''}
-
+${maintenanceText}${legalFeeText}
+━━━━━━━━━━━━━━━
 💰 ${docInfo.suffix}: ${grand}
+━━━━━━━━━━━━━━━
 
 ${companyName}より`;
 
@@ -1296,6 +1400,7 @@ function getCurrentEstimateData() {
         factoryType: document.getElementById('factoryType').value,
         useOSS: document.getElementById('useOSS').checked,
         shakenType: document.getElementById('shakenType').value,
+        shakenExpiryDate: document.getElementById('shakenExpiryDate').value,
         // 法定費用
         reservationFee: document.getElementById('reservationFee').value,
         agencyFee: document.getElementById('agencyFee').value,
@@ -1335,7 +1440,25 @@ function saveEstimateToHistory() {
     if (savedEstimates.length > 100) savedEstimates.pop(); // 最大100件
 
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
-    alert('✅ 見積を履歴に保存しました');
+    
+    // ファイルとしてダウンロード
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+    const plateForFilename = plate.replace(/\s+/g, ''); // スペースを削除
+    const filename = `見積_${plateForFilename}_${dateStr}.json`;
+    
+    const jsonStr = JSON.stringify(estimate, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    alert('✅ 見積を履歴に保存しました\n📥 ファイルもダウンロードしました');
 }
 
 // 見積履歴モーダルを表示
@@ -1433,6 +1556,9 @@ function loadEstimateFromHistory(id) {
     document.getElementById('factoryType').value = d.factoryType || 'designated';
     document.getElementById('useOSS').checked = d.useOSS !== false;
     document.getElementById('shakenType').value = d.shakenType || 'continue';
+    if (document.getElementById('shakenExpiryDate')) {
+        document.getElementById('shakenExpiryDate').value = d.shakenExpiryDate || '';
+    }
 
     // 法定費用
     document.getElementById('reservationFee').value = d.reservationFee || '2200';
@@ -1451,8 +1577,11 @@ function loadEstimateFromHistory(id) {
     // 書類種別
     document.getElementById('documentType').value = d.documentType || 'estimate';
 
+    // 表示更新
+    if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
     updateLegalFees();
     calculateShakenExpiry();
+    calculateTotals();
     closeEstimateHistoryModal();
     alert('✅ 見積を読み込みました');
 }
@@ -1868,4 +1997,233 @@ function checkReminders() {
         }
     }
 }
+
+// =============================================
+// 車検証JSONインポート機能
+// =============================================
+
+function showJsonImportModal() {
+    // リセット状態
+    document.getElementById('jsonImportResult').style.display = 'none';
+    document.getElementById('jsonImportError').style.display = 'none';
+    document.getElementById('jsonFileInput').value = '';
+    document.getElementById('jsonImportModal').classList.add('active');
+
+    // ドラッグ＆ドロップ設定
+    const dropZone = document.getElementById('jsonDropZone');
+    dropZone.ondragover = (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#1a5a8a';
+        dropZone.style.background = '#f0f7ff';
+    };
+    dropZone.ondragleave = (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#ccc';
+        dropZone.style.background = 'transparent';
+    };
+    dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#ccc';
+        dropZone.style.background = 'transparent';
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            processJsonFile(files[0]);
+        }
+    };
+}
+
+function closeJsonImportModal() {
+    document.getElementById('jsonImportModal').classList.remove('active');
+}
+
+function handleJsonFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        processJsonFile(file);
+    }
+}
+
+function processJsonFile(file) {
+    const resultDiv = document.getElementById('jsonImportResult');
+    const errorDiv = document.getElementById('jsonImportError');
+    const previewEl = document.getElementById('jsonImportPreview');
+    const errorText = document.getElementById('jsonImportErrorText');
+
+    resultDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+
+    if (!file.name.endsWith('.json')) {
+        errorDiv.style.display = 'block';
+        errorText.textContent = 'JSONファイルを選択してください。';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            applyVehicleCertificateData(data);
+
+            // 成功表示
+            resultDiv.style.display = 'block';
+            const appliedInfo = [];
+            if (data['自動車登録番号'] || data['登録番号']) appliedInfo.push(`登録番号: ${data['自動車登録番号'] || data['登録番号']}`);
+            if (data['車名']) appliedInfo.push(`車名: ${data['車名']}`);
+            if (data['有効期間の満了する日']) appliedInfo.push(`有効期間: ${data['有効期間の満了する日']}`);
+            if (data['使用者の氏名又は名称']) appliedInfo.push(`使用者: ${data['使用者の氏名又は名称']}`);
+            previewEl.textContent = appliedInfo.join('\n') || 'データを適用しました';
+
+        } catch (err) {
+            errorDiv.style.display = 'block';
+            errorText.textContent = 'JSONの解析に失敗しました: ' + err.message;
+        }
+    };
+    reader.onerror = () => {
+        errorDiv.style.display = 'block';
+        errorText.textContent = 'ファイルの読み込みに失敗しました。';
+    };
+    reader.readAsText(file);
+}
+
+function applyVehicleCertificateData(data) {
+    // 車検証閲覧アプリのJSONフォーマットに対応
+    // 国交省仕様: https://www.mlit.go.jp/jidosha/denshishakennsho.html
+
+    // 登録番号（ナンバープレート）の解析
+    const plateNumber = data['自動車登録番号'] || data['登録番号'] || data['車両番号'] || '';
+    if (plateNumber) {
+        // 例: "品川 500 あ 1234" 形式を分解
+        const plateMatch = plateNumber.match(/^(.+?)\s*(\d{1,3})\s*([あ-ん])\s*(\d{1,4})$/);
+        if (plateMatch) {
+            const plateRegionEl = document.getElementById('plateRegion');
+            const plateClassEl = document.getElementById('plateClass');
+            const plateHiraganaEl = document.getElementById('plateHiragana');
+            const plateSerialEl = document.getElementById('plateSerial');
+
+            if (plateRegionEl) plateRegionEl.value = plateMatch[1].trim();
+            if (plateClassEl) plateClassEl.value = plateMatch[2];
+            if (plateHiraganaEl) {
+                const hiragana = plateMatch[3];
+                const options = plateHiraganaEl.options;
+                for (let i = 0; i < options.length; i++) {
+                    if (options[i].value === hiragana) {
+                        plateHiraganaEl.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            if (plateSerialEl) plateSerialEl.value = plateMatch[4];
+        }
+    }
+
+    // 車名
+    if (data['車名']) {
+        const carNameEl = document.getElementById('carName');
+        if (carNameEl) carNameEl.value = data['車名'];
+    }
+
+    // 型式
+    if (data['型式']) {
+        const carModelEl = document.getElementById('carModel');
+        if (carModelEl) carModelEl.value = data['型式'];
+    }
+
+    // 車台番号
+    if (data['車台番号']) {
+        const chassisEl = document.getElementById('chassisNumber');
+        if (chassisEl) chassisEl.value = data['車台番号'];
+    }
+
+    // 車両重量
+    if (data['車両重量'] || data['車両総重量']) {
+        const weightStr = data['車両重量'] || data['車両総重量'];
+        const weightMatch = weightStr.match(/(\d+)/);
+        if (weightMatch) {
+            const weightKg = parseInt(weightMatch[1]);
+            const weightClassEl = document.getElementById('weightClass');
+            if (weightClassEl) {
+                if (weightKg <= 500) weightClassEl.value = '~500';
+                else if (weightKg <= 1000) weightClassEl.value = '~1000';
+                else if (weightKg <= 1500) weightClassEl.value = '~1500';
+                else if (weightKg <= 2000) weightClassEl.value = '~2000';
+                else if (weightKg <= 2500) weightClassEl.value = '~2500';
+                else weightClassEl.value = '~3000';
+                weightClassEl.dispatchEvent(new Event('change'));
+            }
+        }
+    }
+
+    // 初度登録年月
+    if (data['初度登録年月'] || data['初度検査年月']) {
+        const regDate = data['初度登録年月'] || data['初度検査年月'];
+        const firstRegEl = document.getElementById('firstRegistration');
+        if (firstRegEl) {
+            const convertedDate = convertJapaneseDate(regDate);
+            if (convertedDate) {
+                firstRegEl.value = convertedDate;
+                firstRegEl.dispatchEvent(new Event('change'));
+            }
+        }
+    }
+
+    // 使用者情報
+    if (data['使用者の氏名又は名称']) {
+        const userNameEl = document.getElementById('userName');
+        if (userNameEl) userNameEl.value = data['使用者の氏名又は名称'];
+    }
+    if (data['使用者の住所']) {
+        const userAddressEl = document.getElementById('userAddress');
+        if (userAddressEl) userAddressEl.value = data['使用者の住所'];
+    }
+
+    // 所有者情報
+    if (data['所有者の氏名又は名称']) {
+        const ownerNameEl = document.getElementById('ownerName');
+        if (ownerNameEl) ownerNameEl.value = data['所有者の氏名又は名称'];
+    }
+    if (data['所有者の住所']) {
+        const ownerAddressEl = document.getElementById('ownerAddress');
+        if (ownerAddressEl) ownerAddressEl.value = data['所有者の住所'];
+    }
+
+    // 法定費用を再計算
+    if (typeof calculateLegalFees === 'function') {
+        calculateLegalFees();
+    }
+
+    // 2秒後にモーダルを自動で閉じる
+    setTimeout(() => {
+        closeJsonImportModal();
+    }, 2000);
+}
+
+// 和暦→西暦変換ヘルパー
+function convertJapaneseDate(dateStr) {
+    if (!dateStr) return null;
+
+    // 既に西暦形式の場合
+    const westernMatch = dateStr.match(/(\d{4})[年\-\/](\d{1,2})/);
+    if (westernMatch) {
+        return `${westernMatch[1]}-${westernMatch[2].padStart(2, '0')}`;
+    }
+
+    // 和暦変換
+    const eraPatterns = [
+        { pattern: /令和(\d+)年(\d{1,2})/, base: 2018 },
+        { pattern: /平成(\d+)年(\d{1,2})/, base: 1988 },
+        { pattern: /昭和(\d+)年(\d{1,2})/, base: 1925 }
+    ];
+
+    for (const era of eraPatterns) {
+        const match = dateStr.match(era.pattern);
+        if (match) {
+            const year = era.base + parseInt(match[1]);
+            const month = match[2].padStart(2, '0');
+            return `${year}-${month}`;
+        }
+    }
+
+    return null;
+}
+
 
