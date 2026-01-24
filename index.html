@@ -21,21 +21,18 @@
             /* 2. プレビューモーダルだけを表示 */
             body>#previewModal {
                 display: block !important;
+                /* position: static にして通常のドキュメントフローに戻す */
+                position: static !important;
                 visibility: visible !important;
-                position: relative !important;
-                /* static or relative is fine, but relative works well */
-                top: auto !important;
-                left: auto !important;
                 width: 100% !important;
                 height: auto !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 overflow: visible !important;
-                z-index: 20000 !important;
                 background: white !important;
             }
 
-            /* 3. ルート要素の高さ制限を解除（これが最重要） */
+            /* 3. ルート要素の高さ制限を解除 */
             html,
             body {
                 width: 100% !important;
@@ -50,7 +47,6 @@
             /* 4. モーダル内部のスタイルリセット */
             #previewModal .modal-content {
                 display: block !important;
-                visibility: visible !important;
                 position: static !important;
                 width: 100% !important;
                 height: auto !important;
@@ -60,7 +56,6 @@
                 border: none !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                transform: none !important;
                 overflow: visible !important;
             }
 
@@ -75,12 +70,13 @@
             /* 6. 印刷用コンテナの余白調整 */
             .print-preview {
                 width: 100% !important;
-                max-width: 100% !important;
                 margin: 0 !important;
-                padding: 10mm !important;
-                /* A4用紙の余白 */
+                padding: 0 !important;
+                /* パディングをゼロにしてブラウザの余白設定に委ねる、あるいは最小限にする */
                 border: none !important;
                 box-shadow: none !important;
+                min-height: 0 !important;
+                /* style.cssのmin-heightを打ち消し */
             }
 
             /* 不要なUI非表示 */
@@ -90,15 +86,20 @@
                 display: none !important;
             }
 
-            /* その他の調整 */
+            /* フォント調整 */
             body {
-                font-size: 12pt;
-                line-height: 1.5;
+                font-size: 10pt;
+                /* 少し小さくして収まりを良くする */
             }
 
             /* 改ページ制御 */
             .print-preview {
                 page-break-inside: auto;
+            }
+
+            table {
+                page-break-inside: auto;
+                margin-bottom: 20px;
             }
 
             tr {
@@ -112,6 +113,11 @@
 
             tfoot {
                 display: table-footer-group;
+            }
+
+            /* 空白ページ対策 */
+            * {
+                float: none !important;
             }
         }
     </style>
