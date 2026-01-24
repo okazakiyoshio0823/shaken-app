@@ -1427,24 +1427,29 @@ ${companyName}より`;
     // モバイル判定
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    if (isMobile) {
-        // スマホの場合はLINEアプリを開く
-        const lineUrl = `https://line.me/R/share?text=${encodeURIComponent(message)}`;
-        window.open(lineUrl, '_blank');
-    } else {
-        // PCの場合はクリップボードにコピー
-        navigator.clipboard.writeText(message).then(() => {
-            alert('📋 見積内容をクリップボードにコピーしました！\n\nLINE PC版を開いて貼り付け（Ctrl+V）してください。\n\n💡 スマートフォンでこのページを開くと、直接LINEで共有できます。');
-        }).catch(() => {
-            // クリップボードAPI非対応の場合
-            const textArea = document.createElement('textarea');
-            textArea.value = message;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            alert('📋 見積内容をクリップボードにコピーしました！\n\nLINE PC版を開いて貼り付け（Ctrl+V）してください。');
-        });
+    // LINE共有モーダルを表示
+    document.getElementById('lineShareText').value = message;
+    document.getElementById('lineShareModal').classList.add('active');
+
+    // グローバル変数に保存（ボタンアクション用）
+    window.currentLineMessage = message;
+    window.currentLineUrl = `https://line.me/R/share?text=${encodeURIComponent(message)}`;
+}
+
+function closeLineShareModal() {
+    document.getElementById('lineShareModal').classList.remove('active');
+}
+
+function copyLineText() {
+    const textArea = document.getElementById('lineShareText');
+    textArea.select();
+    document.execCommand('copy');
+    alert('📋 メッセージをコピーしました');
+}
+
+function openLineApp() {
+    if (window.currentLineUrl) {
+        window.open(window.currentLineUrl, '_blank');
     }
 }
 
