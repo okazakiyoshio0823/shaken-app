@@ -996,17 +996,12 @@ function getCustomerNameForPreview() {
 // 車検満了日の自動計算機能
 // =============================================
 
+// 初度登録から車検満了日を計算（表示は更新しない）
 function calculateShakenExpiry() {
     const firstReg = document.getElementById('firstRegistration').value;
     const shakenType = document.getElementById('shakenType').value;
-    const displayEl = document.getElementById('shakenExpiryDisplay');
 
-    if (!firstReg) {
-        displayEl.textContent = '初度登録を入力してください';
-        displayEl.style.background = 'linear-gradient(135deg,#f5f5f5,#e0e0e0)';
-        displayEl.style.color = '#666';
-        return null;
-    }
+    if (!firstReg) return null;
 
     // 日付形式（YYYY-MM-DD）または月形式（YYYY-MM）に対応
     let regDate;
@@ -1018,7 +1013,6 @@ function calculateShakenExpiry() {
         regDate = new Date(firstReg);
     }
     let expiryDate;
-    const now = new Date();
 
     if (shakenType === 'new') {
         // 新車は初度登録から3年後
@@ -1030,24 +1024,6 @@ function calculateShakenExpiry() {
 
     // 満了日の前日（車検証記載の満了日）
     expiryDate.setDate(expiryDate.getDate() - 1);
-
-    const expiryStr = `${expiryDate.getFullYear()}年${expiryDate.getMonth() + 1}月${expiryDate.getDate()}日`;
-    const daysUntil = Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000));
-
-    // 新車か継続かのラベル
-    const typeLabel = shakenType === 'new' ? '(初回3年)' : '(継続2年)';
-
-    if (daysUntil < 0) {
-        displayEl.innerHTML = `<span style="color:#d32f2f;">⚠️ ${expiryStr}<br><small>（期限切れ）${typeLabel}</small></span>`;
-        displayEl.style.background = 'linear-gradient(135deg,#ffebee,#ffcdd2)';
-    } else if (daysUntil <= 30) {
-        displayEl.innerHTML = `<span style="color:#f57c00;">⚡ ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small></span>`;
-        displayEl.style.background = 'linear-gradient(135deg,#fff3e0,#ffe0b2)';
-    } else {
-        displayEl.innerHTML = `✅ ${expiryStr}<br><small>（あと${daysUntil}日）${typeLabel}</small>`;
-        displayEl.style.background = 'linear-gradient(135deg,#e8f5e9,#c8e6c9)';
-        displayEl.style.color = '#2e7d32';
-    }
 
     return expiryDate;
 }
@@ -1061,7 +1037,7 @@ function updateShakenExpiryDisplay() {
     if (!shakenExpiryDate) {
         displayEl.innerHTML = '車検満了日を入力してください';
         displayEl.style.background = 'linear-gradient(135deg,#f5f5f5,#e0e0e0)';
-        displayEl.style.color = '#666';
+        displayEl.style.color = '#333';
         return;
     }
 

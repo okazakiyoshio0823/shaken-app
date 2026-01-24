@@ -143,11 +143,17 @@
                 <div class="form-group">
                     <label>ナンバープレート <span class="required">*</span></label>
                     <div class="plate-input">
-                        <input type="text" class="form-control" id="plateRegion" placeholder="品川">
-                        <input type="text" class="form-control" id="plateClass" placeholder="500">
-                        <input type="text" class="form-control" id="plateHiragana" placeholder="あ">
-                        <span>-</span>
-                        <input type="text" class="form-control" id="plateSerial" placeholder="1234">
+                        <div class="plate-input">
+                            <input type="text" class="form-control" id="plateRegion" placeholder="品川"
+                                style="ime-mode: active;">
+                            <input type="tel" class="form-control" id="plateClass" placeholder="500"
+                                style="ime-mode: disabled;" inputmode="numeric">
+                            <input type="text" class="form-control" id="plateHiragana" placeholder="あ"
+                                style="ime-mode: active;">
+                            <span>-</span>
+                            <input type="tel" class="form-control" id="plateSerial" placeholder="1234"
+                                style="ime-mode: disabled;" inputmode="numeric">
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -189,8 +195,8 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>初度登録年月日</label>
-                        <input type="date" class="form-control" id="firstRegistration"
-                            onchange="calculateShakenExpiry()">
+                        <input type="date" class="form-control" id="firstRegistration" <input type="date"
+                            class="form-control" id="firstRegistration">
                     </div>
                     <div class="form-group">
                         <label>走行距離</label>
