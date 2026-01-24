@@ -12,50 +12,106 @@
     <link rel="stylesheet" href="css/style.css">
     <style>
         @media print {
-            body * {
-                visibility: hidden;
+
+            /* 1. 全ての直下要素を非表示にする（ホワイトリスト方式） */
+            body>* {
+                display: none !important;
             }
 
-            .modal-overlay.active {
-                position: absolute;
-                left: 0;
-                top: 0;
-                display: block;
-                background: white;
+            /* 2. プレビューモーダルだけを表示 */
+            body>#previewModal {
+                display: block !important;
+                visibility: visible !important;
+                position: relative !important;
+                /* static or relative is fine, but relative works well */
+                top: auto !important;
+                left: auto !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                z-index: 20000 !important;
+                background: white !important;
             }
 
-            .modal-content.preview-modal {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                margin: 0;
-                padding: 0;
-                box-shadow: none;
-                visibility: visible;
-                max-width: none;
+            /* 3. ルート要素の高さ制限を解除（これが最重要） */
+            html,
+            body {
+                width: 100% !important;
+                height: auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
             }
 
-            #previewContent,
-            #previewContent * {
-                visibility: visible;
+            /* 4. モーダル内部のスタイルリセット */
+            #previewModal .modal-content {
+                display: block !important;
+                visibility: visible !important;
+                position: static !important;
+                width: 100% !important;
+                height: auto !important;
+                max-width: none !important;
+                max-height: none !important;
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                transform: none !important;
+                overflow: visible !important;
             }
 
-            /* 印刷時に不要なボタンなどを隠す */
+            /* 5. プレビュー本文の表示 */
+            #previewContent {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            /* 6. 印刷用コンテナの余白調整 */
+            .print-preview {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 10mm !important;
+                /* A4用紙の余白 */
+                border: none !important;
+                box-shadow: none !important;
+            }
+
+            /* 不要なUI非表示 */
             .modal-header,
             .modal-footer,
             .modal-close {
                 display: none !important;
             }
 
-            .print-preview {
-                border: none !important;
-                padding: 0 !important;
+            /* その他の調整 */
+            body {
+                font-size: 12pt;
+                line-height: 1.5;
             }
 
-            /* 改ページ設定 */
-            .page-break {
-                page-break-before: always;
+            /* 改ページ制御 */
+            .print-preview {
+                page-break-inside: auto;
+            }
+
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+
+            thead {
+                display: table-header-group;
+            }
+
+            tfoot {
+                display: table-footer-group;
             }
         }
     </style>
