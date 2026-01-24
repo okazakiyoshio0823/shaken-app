@@ -59,6 +59,19 @@
                 overflow: visible !important;
             }
 
+            /* .modal-body のスクロール設定を解除（これが白紙の原因） */
+            #previewModal .modal-body {
+                display: block !important;
+                position: static !important;
+                width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                flex: none !important;
+            }
+
             /* 5. プレビュー本文の表示 */
             #previewContent {
                 display: block !important;
