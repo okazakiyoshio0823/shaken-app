@@ -368,12 +368,22 @@ function showCategory(key) {
     document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
     document.querySelector(`.category-tab:nth-child(${Object.keys(MAINTENANCE_CATEGORIES).indexOf(key) + 1})`).classList.add('active');
     const list = document.getElementById('quickItemsList');
-    list.innerHTML = MAINTENANCE_CATEGORIES[key].items.map((item, i) => `
+    list.innerHTML = MAINTENANCE_CATEGORIES[key].items.map((item, i) => {
+        let priceDisplay = '';
+        if (item.parts !== undefined || item.wage !== undefined) {
+            const p = item.parts || 0;
+            const w = item.wage || 0;
+            priceDisplay = `¥${(p + w).toLocaleString()} <small>(部${p.toLocaleString()}/工${w.toLocaleString()})</small>`;
+        } else {
+            priceDisplay = item.price === 0 ? '無料' : '¥' + item.price.toLocaleString();
+        }
+
+        return `
         <div class="quick-item" onclick="addQuickItem('${key}', ${i})">
             <span class="item-name">${item.name}</span>
-            <span class="item-price">${item.price === 0 ? '無料' : '¥' + item.price.toLocaleString()}</span>
+            <span class="item-price">${priceDisplay}</span>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function showQuickAddModal() {
@@ -384,26 +394,49 @@ function closeQuickAddModal() {
     document.getElementById('quickAddModal').classList.remove('active');
 }
 
+// 新しい項目入力欄はHTML側で更新が必要ですが、
+// ここでは既存の入力欄（単価）を「部品＋工賃の合計（もしくは部品代）」として扱うか、
+// HTMLを修正して2つの入力欄にするのがベストです。
+// 今回は「単価」欄を「部品代」として扱い、工賃は0で追加するようにします。
 function addQuickItem(key, idx) {
     const item = MAINTENANCE_CATEGORIES[key].items[idx];
-    addItemToTable(item.name, 1, item.price);
+    const parts = item.parts || (item.price || 0);
+    const wage = item.wage || 0;
+
+    // 部品と工賃を分けて保持するが、1つの行（アイテム）として追加
+    addItemToTable(item.name, 1, parts, wage);
+
+    // 連続で追加できるようにモーダルは閉じない
+    // closeQuickAddModal();
+
+    // オプション：追加されたことをユーザーに知らせる軽いフィードバックがあれば親切ですが、
+    // まずは要望通り閉じないようにします。
 }
 
 function addMaintenanceItem() {
     const name = document.getElementById('newItemName').value.trim();
     const qty = parseInt(document.getElementById('newItemQty').value) || 1;
-    const price = parseInt(document.getElementById('newItemPrice').value) || 0;
+    // 手動追加の「単価」はとりあえず部品代として扱う（後で編集可能）
+    const parts = parseInt(document.getElementById('newItemPrice').value) || 0;
+
     if (!name) { alert('項目名を入力してください'); return; }
-    addItemToTable(name, qty, price);
+    addItemToTable(name, qty, parts, 0); // 工賃0で追加
+
     document.getElementById('newItemName').value = '';
     document.getElementById('newItemQty').value = '1';
     document.getElementById('newItemPrice').value = '';
 }
 
-function addItemToTable(name, qty, price) {
+function addItemToTable(name, qty, parts, wage) {
+    const total = (parts + wage);
     maintenanceItems.push({
-        id: Date.now(), name, qty, price,
-        taxIncludedPrice: Math.round(price * qty * (1 + TAX_RATE))
+        id: Date.now(),
+        name,
+        qty,
+        parts,
+        wage,
+        subItems: [], // 内訳（追加部品など）用
+        taxIncludedPrice: Math.round(total * qty * (1 + TAX_RATE))
     });
     renderMaintenanceTable();
     calculateTotals();
@@ -411,35 +444,132 @@ function addItemToTable(name, qty, price) {
 
 function renderMaintenanceTable() {
     const tbody = document.getElementById('maintenanceItems');
-    tbody.innerHTML = maintenanceItems.map(item => `
-        <tr>
+    tbody.innerHTML = maintenanceItems.map(item => {
+        // メイン項目行
+        const mainRow = `
+        <tr class="main-row">
             <td>${escapeHtml(item.name)}</td>
             <td class="text-center"><input type="number" class="form-control qty" value="${item.qty}" min="1" onchange="updateItemQty(${item.id}, this.value)"></td>
-            <td class="text-right"><input type="number" class="form-control price" value="${item.price}" min="0" onchange="updateItemPrice(${item.id}, this.value)"></td>
+            <td class="text-right">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end;">
+                        <span style="font-size: 0.8em; color: #666; margin-right: 5px;">部品</span>
+                        <input type="number" class="form-control price" value="${item.parts}" min="0" placeholder="0" onchange="updateItemParts(${item.id}, this.value)" style="width: 100px;">
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: flex-end;">
+                        <span style="font-size: 0.8em; color: #666; margin-right: 5px;">工賃</span>
+                        <input type="number" class="form-control price" value="${item.wage}" min="0" placeholder="0" onchange="updateItemWage(${item.id}, this.value)" style="width: 100px;">
+                    </div>
+                </div>
+            </td>
             <td class="text-right">¥${item.taxIncludedPrice.toLocaleString()}</td>
-            <td><button class="btn-remove" onclick="removeItem(${item.id})">×</button></td>
+            <td>
+                <button class="btn-add-sub" onclick="addSubItem(${item.id})" title="部品明細を追加">＋</button>
+                <button class="btn-remove" onclick="removeItem(${item.id})">×</button>
+            </td>
+        </tr>`;
+
+        // サブ項目行（ある場合）
+        const subRows = (item.subItems || []).map((sub, idx) => `
+        <tr class="sub-row" style="background-color: #f9f9f9;">
+            <td style="padding-left: 30px; font-size: 0.9em;">
+                <span style="color:#999;">┗ </span>
+                <input type="text" class="form-control form-control-sm" value="${sub.name}" placeholder="部品名" onchange="updateSubItem(${item.id}, ${idx}, 'name', this.value)" style="width: 200px; display: inline-block;">
+            </td>
+            <td class="text-center">
+                <input type="number" class="form-control form-control-sm qty" value="${sub.qty}" min="1" onchange="updateSubItem(${item.id}, ${idx}, 'qty', this.value)" style="width: 60px;">
+            </td>
+            <td class="text-right">
+                <div style="display: flex; align-items: center; justify-content: flex-end;">
+                     <span style="font-size: 0.8em; color: #666; margin-right: 5px;">部品</span>
+                    <input type="number" class="form-control form-control-sm price" value="${sub.price}" min="0" onchange="updateSubItem(${item.id}, ${idx}, 'price', this.value)" style="width: 100px;">
+                </div>
+            </td>
+            <td class="text-right" style="font-size: 0.9em;">¥${sub.taxIncludedPrice.toLocaleString()}</td>
+            <td><button class="btn-remove btn-sm" onclick="removeSubItem(${item.id}, ${idx})">×</button></td>
         </tr>
-    `).join('');
+        `).join('');
+
+        return mainRow + subRows;
+    }).join('');
+}
+
+// サブ項目（部品明細）を追加
+function addSubItem(parentId) {
+    const item = maintenanceItems.find(i => i.id === parentId);
+    if (!item) return;
+
+    if (!item.subItems) item.subItems = [];
+    item.subItems.push({
+        name: '',
+        qty: 1,
+        price: 0,
+        taxIncludedPrice: 0
+    });
+    renderMaintenanceTable();
+}
+
+// サブ項目を更新
+function updateSubItem(parentId, idx, field, val) {
+    const item = maintenanceItems.find(i => i.id === parentId);
+    if (!item || !item.subItems || !item.subItems[idx]) return;
+
+    const sub = item.subItems[idx];
+    if (field === 'name') sub.name = val;
+    if (field === 'qty') sub.qty = parseInt(val) || 1;
+    if (field === 'price') sub.price = parseInt(val) || 0;
+
+    sub.taxIncludedPrice = Math.round(sub.price * sub.qty * (1 + TAX_RATE));
+
+    updateItemTotal(item);
+}
+
+// サブ項目を削除
+function removeSubItem(parentId, idx) {
+    const item = maintenanceItems.find(i => i.id === parentId);
+    if (!item || !item.subItems) return;
+
+    item.subItems.splice(idx, 1);
+    updateItemTotal(item);
 }
 
 function updateItemQty(id, val) {
     const item = maintenanceItems.find(i => i.id === id);
     if (item) {
         item.qty = parseInt(val) || 1;
-        item.taxIncludedPrice = Math.round(item.price * item.qty * (1 + TAX_RATE));
-        renderMaintenanceTable();
-        calculateTotals();
+        updateItemTotal(item);
     }
 }
 
-function updateItemPrice(id, val) {
+function updateItemParts(id, val) {
     const item = maintenanceItems.find(i => i.id === id);
     if (item) {
-        item.price = parseInt(val) || 0;
-        item.taxIncludedPrice = Math.round(item.price * item.qty * (1 + TAX_RATE));
-        renderMaintenanceTable();
-        calculateTotals();
+        item.parts = parseInt(val) || 0;
+        updateItemTotal(item);
     }
+}
+
+function updateItemWage(id, val) {
+    const item = maintenanceItems.find(i => i.id === id);
+    if (item) {
+        item.wage = parseInt(val) || 0;
+        updateItemTotal(item);
+    }
+}
+
+function updateItemTotal(item) {
+    // メイン項目の合計
+    const mainTotal = (item.parts || 0) + (item.wage || 0);
+    const mainTaxIncluded = Math.round(mainTotal * item.qty * (1 + TAX_RATE));
+
+    // サブ項目の合計
+    const subTaxIncluded = (item.subItems || []).reduce((s, sub) => s + sub.taxIncludedPrice, 0);
+
+    // 全体合計（表示用）
+    item.taxIncludedPrice = mainTaxIncluded + subTaxIncluded;
+
+    renderMaintenanceTable();
+    calculateTotals();
 }
 
 function removeItem(id) {
@@ -547,8 +677,33 @@ function generatePreviewHtml() {
     }
 
     const maintRows = maintenanceItems.length > 0
-        ? maintenanceItems.map(i => `<tr><td>${escapeHtml(i.name)}</td><td class="text-right">${i.qty}</td><td class="text-right">¥${i.price.toLocaleString()}</td><td class="text-right">¥${i.taxIncludedPrice.toLocaleString()}</td></tr>`).join('')
-        : '<tr><td colspan="4" style="text-align:center;color:#999">整備項目なし</td></tr>';
+        ? maintenanceItems.map(i => {
+            // メイン項目
+            const mainRow = `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="font-weight:bold;">${escapeHtml(i.name)}</td>
+                    <td class="text-right">${i.qty}</td>
+                    <td class="text-right">¥${(i.parts || 0).toLocaleString()}</td>
+                    <td class="text-right">¥${(i.wage || 0).toLocaleString()}</td>
+                    <td class="text-right"><strong>¥${i.taxIncludedPrice.toLocaleString()}</strong></td>
+                </tr>`;
+
+            // サブ項目（部品明細）がある場合は表示
+            const subRows = (i.subItems && i.subItems.length > 0)
+                ? i.subItems.map(sub => `
+                    <tr style="color:#555; background-color:#f9f9f9;">
+                        <td style="padding-left:20px;">┗ ${escapeHtml(sub.name || '(名称未入力)')}</td>
+                        <td class="text-right">${sub.qty}</td>
+                        <td class="text-right">¥${sub.price.toLocaleString()}</td>
+                        <td class="text-right">-</td>
+                        <td class="text-right">¥${sub.taxIncludedPrice.toLocaleString()}</td>
+                    </tr>
+                `).join('')
+                : '';
+
+            return mainRow + subRows;
+        }).join('')
+        : '<tr><td colspan="5" style="text-align:center;color:#999">整備項目なし</td></tr>';
 
     return `
         <div class="print-preview" id="printPreview">
@@ -580,9 +735,27 @@ function generatePreviewHtml() {
             
             <div class="preview-section">🔧 整備内容</div>
             <table class="preview-table">
-                <thead><tr><th>項目</th><th class="text-right">数量</th><th class="text-right">単価(税抜)</th><th class="text-right">金額(税込)</th></tr></thead>
-                <tbody>${maintRows}</tbody>
-                <tfoot><tr><td colspan="3" class="text-right">整備費用 小計(税込)</td><td class="text-right">¥${maint.toLocaleString()}</td></tr></tfoot>
+                <thead>
+                    <tr>
+                        <th>項目</th>
+                        <th class="text-right">数量</th>
+                        <th class="text-right">部品単価</th>
+                        <th class="text-right">技術料</th>
+                        <th class="text-right">金額(税込)</th>
+                    </tr>
+                </thead>
+                <tbody>${maintenanceItems.length > 0
+            ? maintenanceItems.map(i => `
+                    <tr>
+                        <td>${escapeHtml(i.name)}</td>
+                        <td class="text-right">${i.qty}</td>
+                        <td class="text-right">¥${(i.parts || 0).toLocaleString()}</td>
+                        <td class="text-right">¥${(i.wage || 0).toLocaleString()}</td>
+                        <td class="text-right">¥${i.taxIncludedPrice.toLocaleString()}</td>
+                    </tr>`).join('')
+            : '<tr><td colspan="5" style="text-align:center;color:#999">整備項目なし</td></tr>'}
+                </tbody>
+                <tfoot><tr><td colspan="4" class="text-right">整備費用 小計(税込)</td><td class="text-right">¥${maint.toLocaleString()}</td></tr></tfoot>
             </table>
             
             <div class="preview-section">📋 法定費用・諸費用</div>
