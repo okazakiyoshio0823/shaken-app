@@ -1,3 +1,4 @@
+// Updated: 2026-01-24 11:55:00
 // メインアプリケーションロジック
 let maintenanceItems = [];
 let currentLegalFees = { weightTax: 0, jibaiseki: 0, stamp: 0 };
