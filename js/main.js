@@ -743,8 +743,7 @@ function generatePreviewHtml() {
                     <tr>
                         <th>項目</th>
                         <th class="text-right">数量</th>
-                        <th class="text-right">部品単価</th>
-                        <th class="text-right">技術料</th>
+                        <th class="text-right" style="width: 15%;">単価</th>
                         <th class="text-right">金額(税込)</th>
                     </tr>
                 </thead>
@@ -753,13 +752,19 @@ function generatePreviewHtml() {
                     <tr>
                         <td>${escapeHtml(i.name)}</td>
                         <td class="text-right">${i.qty}</td>
-                        <td class="text-right">¥${(i.parts || 0).toLocaleString()}</td>
-                        <td class="text-right">¥${(i.wage || 0).toLocaleString()}</td>
+                        <td class="text-right">
+                            <div style="display:flex;justify-content:flex-end;align-items:center;font-size:0.9em;">
+                                <span style="font-size:0.8em;color:#666;margin-right:4px;">部品</span>¥${(i.parts || 0).toLocaleString()}
+                            </div>
+                            <div style="display:flex;justify-content:flex-end;align-items:center;font-size:0.9em;">
+                                <span style="font-size:0.8em;color:#666;margin-right:4px;">工賃</span>¥${(i.wage || 0).toLocaleString()}
+                            </div>
+                        </td>
                         <td class="text-right">¥${i.taxIncludedPrice.toLocaleString()}</td>
                     </tr>`).join('')
             : '<tr><td colspan="5" style="text-align:center;color:#999">整備項目なし</td></tr>'}
+            <tr><td colspan="4" class="text-right" style="border-top:2px solid #ddd;font-weight:bold;">整備費用 小計(税込)</td><td class="text-right" style="border-top:2px solid #ddd;font-weight:bold;font-size:1.1em;">¥${maint.toLocaleString()}</td></tr>
                 </tbody>
-                <tfoot><tr><td colspan="4" class="text-right">整備費用 小計(税込)</td><td class="text-right">¥${maint.toLocaleString()}</td></tr></tfoot>
             </table>
             
             <div class="preview-section">📋 法定費用・諸費用</div>
