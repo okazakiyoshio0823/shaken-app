@@ -10,6 +10,55 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            .modal-overlay.active {
+                position: absolute;
+                left: 0;
+                top: 0;
+                display: block;
+                background: white;
+            }
+
+            .modal-content.preview-modal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                visibility: visible;
+                max-width: none;
+            }
+
+            #previewContent,
+            #previewContent * {
+                visibility: visible;
+            }
+
+            /* 印刷時に不要なボタンなどを隠す */
+            .modal-header,
+            .modal-footer,
+            .modal-close {
+                display: none !important;
+            }
+
+            .print-preview {
+                border: none !important;
+                padding: 0 !important;
+            }
+
+            /* 改ページ設定 */
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -599,6 +648,29 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeQRCodeModal()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: LINE共有ポップアップ -->
+    <div class="modal-overlay" id="lineShareModal">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h2>📱 LINEで共有</h2>
+                <button class="modal-close" onclick="closeLineShareModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:12px;color:#666;">以下のメッセージをコピーしてLINEに貼りけるか、ボタンを押して直接共有してください。</p>
+                <textarea class="form-control" id="lineShareText" rows="10" style="font-size:0.9em;margin-bottom:16px;"
+                    readonly></textarea>
+                <div style="display:flex;gap:10px;justify-content:center;">
+                    <button class="btn btn-primary" onclick="copyLineText()" style="flex:1;">📋 コピー</button>
+                    <button class="btn btn-success" onclick="openLineApp()" style="flex:1;background:#06C755;">📱
+                        LINEを開く</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeLineShareModal()">閉じる</button>
             </div>
         </div>
     </div>
