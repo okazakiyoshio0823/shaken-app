@@ -268,13 +268,16 @@ function loadCustomerData(id) {
     updateLegalFees();
     updateShakenExpiryDisplay();
     closeCustomerListModal();
+    alert('読み込みました');
 }
 
 function deleteCustomerData(id) {
-    if (!confirm('この顧客データを削除しますか？')) return;
+    if (!confirm('このデータを削除してもよろしいですか？')) return;
+
     savedCustomers = savedCustomers.filter(c => c.id !== id);
     localStorage.setItem(STORAGE_CUSTOMERS, JSON.stringify(savedCustomers));
-    renderCustomerList(document.getElementById('customerSearch').value);
+
+    renderCustomerList(document.querySelector('#customerListModal input[type="text"]')?.value || '');
 }
 
 function searchCustomers() {
