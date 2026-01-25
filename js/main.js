@@ -639,6 +639,13 @@ function clearForm() {
 function showPreview() {
     document.getElementById('previewContent').innerHTML = generatePreviewHtml();
     document.getElementById('previewModal').classList.add('active');
+
+    // プレビュー表示直後に自動調整を実行（デフォルトがautoの場合）
+    const currentMode = document.getElementById('printModeSelect') ? document.getElementById('printModeSelect').value : 'standard';
+    if (currentMode === 'auto') {
+        // レンダリング待ちのために遅延（画像などの読み込みを考慮し長めに）
+        setTimeout(autoAdjustPrintLayout, 300);
+    }
 }
 function closePreviewModal() {
     document.getElementById('previewModal').classList.remove('active');
@@ -833,6 +840,39 @@ function exportCustomersToFile() {
     URL.revokeObjectURL(url);
 
     alert(`${savedCustomers.length}件の顧客データをエクスポートしました`);
+}
+// 自動レイアウト調整
+// コンテンツの高さを計測し、ページ境界（A4目安）をわずかに超えている場合に圧縮を適用する
+function autoAdjustPrintLayout() {
+    const preview = document.getElementById('printPreview'); // Changed from 'previewContent' to 'printPreview'
+    if (!preview) return;
+
+    // まず標準に戻して高さを計測
+    preview.classList.remove('print-compact', 'print-eco');
+
+    // A4高さの目安 (96dpiで約1123px。ブラウザの標準余白(約25mm)を引くと印刷可能領域は約980px程度)
+    const PAGE_HEIGHT = 980;
+    const contentHeight = preview.scrollHeight;
+
+    // ページ数計算（切り上げ）
+    const pages = Math.ceil(contentHeight / PAGE_HEIGHT);
+
+    // 余り（最後のページの高さ）
+    const remainder = contentHeight % PAGE_HEIGHT;
+
+    // 閾値: 最後のページが「ページの30%以下」しかない場合、それは「孤立した余り」とみなす
+    const ORPHAN_THRESHOLD = PAGE_HEIGHT * 0.3;
+
+    console.log(`Auto Layout Analysis: Height ${contentHeight}px, Pages ${pages}, Remainder ${remainder}px`);
+
+    // 1ページ以上あり、かつ余りが閾値以下（またはページまたぎギリギリ）の場合
+    if (pages > 1 && remainder > 0 && remainder < ORPHAN_THRESHOLD) {
+        console.log('Orphan detected! Switching to Compact mode.');
+        preview.classList.add('print-compact');
+
+        // 再チェック：Compactでもまだダメなら
+        // このロジックは再帰的に呼ぶこともできるが、無限ループ防止のため簡易的に済ませる
+    }
 }
 
 // JSONファイルから顧客データをインポート
