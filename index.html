@@ -11,6 +11,57 @@
         rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <style>
+        /* 印刷/プレビュー調整モード */
+        /* やや詰める (Compact) */
+        .print-compact {
+            font-size: 0.9em !important;
+        }
+
+        .print-compact .preview-table th,
+        .print-compact .preview-table td {
+            padding: 4px 6px !important;
+        }
+
+        .print-compact .preview-section {
+            margin: 10px 0 5px !important;
+            padding: 4px 8px !important;
+            font-size: 1.1em !important;
+        }
+
+        .print-compact .preview-info-item {
+            margin-bottom: 2px !important;
+        }
+
+        .print-compact .preview-title {
+            font-size: 1.4em !important;
+            margin-bottom: 10px !important;
+        }
+
+        /* かなり詰める (Eco) */
+        .print-eco {
+            font-size: 0.8em !important;
+        }
+
+        .print-eco .preview-table th,
+        .print-eco .preview-table td {
+            padding: 2px 4px !important;
+        }
+
+        .print-eco .preview-section {
+            margin: 5px 0 5px !important;
+            padding: 2px 8px !important;
+            font-size: 1em !important;
+        }
+
+        .print-eco .preview-info-item {
+            margin-bottom: 0px !important;
+        }
+
+        .print-eco .preview-title {
+            font-size: 1.2em !important;
+            margin-bottom: 5px !important;
+        }
+
         @media print {
 
             /* 1. 全ての直下要素を非表示にする（ホワイトリスト方式） */
@@ -615,10 +666,23 @@
                 <button class="modal-close" onclick="closePreviewModal()">×</button>
             </div>
             <div class="modal-body" id="previewContent"></div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closePreviewModal()">閉じる</button>
-                <button class="btn btn-primary" onclick="shareToLine()" style="background:#06C755;">📱 LINEで共有</button>
-                <button class="btn btn-success" onclick="generatePDF()">📄 PDF出力</button>
+            <div class="modal-footer" style="justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label for="printModeSelect" style="font-weight: bold; font-size: 0.9em;">レイアウト設定:</label>
+                    <select id="printModeSelect" class="form-control" style="width: auto; padding: 4px 8px;"
+                        onchange="setPrintMode(this.value)">
+                        <option value="auto" selected>自動 (推奨)</option>
+                        <option value="standard">標準</option>
+                        <option value="compact">やや詰める (90%)</option>
+                        <option value="eco">かなり詰める (80%)</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-outline" onclick="closePreviewModal()">閉じる</button>
+                    <button class="btn btn-primary" onclick="shareToLine()" style="background:#06C755;">📱
+                        LINEで共有</button>
+                    <button class="btn btn-success" onclick="generatePDF()">📄 PDF出力</button>
+                </div>
             </div>
         </div>
     </div>
