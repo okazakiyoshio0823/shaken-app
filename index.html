@@ -534,19 +534,19 @@
                             <label style="display: block; font-size: 0.85em; color: #666; margin-bottom: 3px;">部品
                                 値引率(%)</label>
                             <input type="number" class="form-control" id="globalDiscountParts" value="0" min="0"
-                                max="100" onchange="updateGlobalDiscount('parts', this.value)" style="width: 100%;">
+                                max="100" oninput="updateGlobalDiscount('parts', this.value)" style="width: 100%;">
                         </div>
                         <div>
                             <label style="display: block; font-size: 0.85em; color: #666; margin-bottom: 3px;">鉱油類
                                 値引率(%)</label>
                             <input type="number" class="form-control" id="globalDiscountFluid" value="0" min="0"
-                                max="100" onchange="updateGlobalDiscount('fluid', this.value)" style="width: 100%;">
+                                max="100" oninput="updateGlobalDiscount('fluid', this.value)" style="width: 100%;">
                         </div>
                         <div>
                             <label style="display: block; font-size: 0.85em; color: #666; margin-bottom: 3px;">工賃
                                 値引率(%)</label>
                             <input type="number" class="form-control" id="globalDiscountWage" value="0" min="0"
-                                max="100" onchange="updateGlobalDiscount('wage', this.value)" style="width: 100%;">
+                                max="100" oninput="updateGlobalDiscount('wage', this.value)" style="width: 100%;">
                         </div>
                     </div>
                     <div style="font-size: 0.75em; color: #666; margin-top: 6px;">※ 全ての整備項目に適用されます。各項目ごとの値引きと合算されます。
