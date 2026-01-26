@@ -484,14 +484,14 @@ function renderMaintenanceTable() {
                         <span style="font-size: 0.8em; color: #666; margin-right: 5px;">${partsLabel}</span>
                         <input type="number" class="form-control price" value="${item.parts}" min="0" placeholder="0" onchange="updateItemParts(${item.id}, this.value)" style="width: 100px;">
                         <span style="font-size: 0.75em; color: #f57c00; margin: 0 4px; font-weight: 500;">値引</span>
-                        <input type="number" class="form-control price" value="${discount.parts}" min="0" max="100" placeholder="${item.isFluid ? globalDiscount.fluid : globalDiscount.parts}%" onchange="updateItemDiscount(${item.id}, 'parts', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="全体${item.isFluid ? globalDiscount.fluid : globalDiscount.parts}% + 個別入力%">
+                        <input type="number" class="form-control price" value="${discount.parts > 0 ? discount.parts : ''}" min="0" max="100" placeholder="${item.isFluid ? globalDiscount.fluid : globalDiscount.parts}%" onchange="updateItemDiscount(${item.id}, 'parts', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="全体${item.isFluid ? globalDiscount.fluid : globalDiscount.parts}% + 個別入力%">
                         <span style="font-size: 0.75em; color: #f57c00; margin-left: 4px;">%</span>
                     </div>
                     <div style="display: flex; align-items: center; justify-content: flex-end;">
                         <span style="font-size: 0.8em; color: #666; margin-right: 5px;">工賃</span>
                         <input type="number" class="form-control price" value="${item.wage}" min="0" placeholder="0" onchange="updateItemWage(${item.id}, this.value)" style="width: 100px;">
                         <span style="font-size: 0.75em; color: #f57c00; margin: 0 4px; font-weight: 500;">値引</span>
-                        <input type="number" class="form-control price" value="${discount.wage}" min="0" max="100" placeholder="${globalDiscount.wage}%" onchange="updateItemDiscount(${item.id}, 'wage', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="全体${globalDiscount.wage}% + 個別入力%">
+                        <input type="number" class="form-control price" value="${discount.wage > 0 ? discount.wage : ''}" min="0" max="100" placeholder="${globalDiscount.wage}%" onchange="updateItemDiscount(${item.id}, 'wage', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="全体${globalDiscount.wage}% + 個別入力%">
                         <span style="font-size: 0.75em; color: #f57c00; margin-left: 4px;">%</span>
                     </div>
                     ${discountAmt.total > 0 ? `<div style="text-align: right; font-size: 0.75em; color: #d32f2f; margin-top: 2px;">値引: -¥${discountAmt.total.toLocaleString()}</div>` : ''}
@@ -657,8 +657,9 @@ document.addEventListener('DOMContentLoaded', () => {
     inputs.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            el.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
+            el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.isComposing) {
+                    e.preventDefault();
                     addMaintenanceItem();
                     // フォーカスを項目名に戻す
                     document.getElementById('newItemName').focus();
