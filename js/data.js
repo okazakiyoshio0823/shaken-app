@@ -46,19 +46,21 @@ const MAINTENANCE_CATEGORIES = {
     },
     oil: {
         name: "オイル関連", items: [
-            { name: "エンジンオイル交換（〜3L）", parts: 1500, wage: 1500 },
-            { name: "エンジンオイル交換（〜4L）", parts: 2000, wage: 2000 },
-            { name: "エンジンオイル交換（〜5L）", parts: 2500, wage: 2500 },
+            { name: "エンジンオイル交換（〜3L）", parts: 1500, wage: 1500, isFluid: true },
+            { name: "エンジンオイル交換（〜4L）", parts: 2000, wage: 2000, isFluid: true },
+            { name: "エンジンオイル交換（〜5L）", parts: 2500, wage: 2500, isFluid: true },
             { name: "オイルフィルター交換", parts: 1500, wage: 1000 },
-            { name: "ATF交換", parts: 5000, wage: 3000 },
-            { name: "CVTフルード交換", parts: 7000, wage: 3000 },
-            { name: "ミッションオイル交換", parts: 3000, wage: 2000 },
-            { name: "デフオイル交換", parts: 2500, wage: 1500 }
+            { name: "ATF交換", parts: 5000, wage: 3000, isFluid: true },
+            { name: "CVTフルード交換", parts: 7000, wage: 3000, isFluid: true },
+            { name: "ミッションオイル交換", parts: 3000, wage: 2000, isFluid: true },
+            { name: "デフオイル交換", parts: 2500, wage: 1500, isFluid: true },
+            { name: "パワーステアリングフルード交換", parts: 2000, wage: 2500, isFluid: true },
+            { name: "4WDオイル（トランスファー）交換", parts: 3500, wage: 2500, isFluid: true }
         ]
     },
     brake: {
         name: "ブレーキ関連", items: [
-            { name: "ブレーキフルード交換", parts: 2000, wage: 4000 },
+            { name: "ブレーキフルード交換", parts: 2000, wage: 4000, isFluid: true },
             { name: "ブレーキパッド交換（フロント左右）", parts: 10000, wage: 8000 },
             { name: "ブレーキパッド交換（リア左右）", parts: 8000, wage: 8000 },
             { name: "ブレーキシュー交換（左右）", parts: 7000, wage: 8000 },
@@ -68,7 +70,8 @@ const MAINTENANCE_CATEGORIES = {
     },
     cooling: {
         name: "冷却系", items: [
-            { name: "LLC（冷却水）交換", parts: 2000, wage: 3000 },
+            { name: "LLC（冷却水）交換", parts: 2000, wage: 3000, isFluid: true },
+            { name: "エンジンクーラント補充", parts: 500, wage: 500, isFluid: true },
             { name: "ラジエターキャップ交換", parts: 1000, wage: 500 },
             { name: "サーモスタット交換", parts: 3000, wage: 5000 },
             { name: "ラジエターホース交換", parts: 2000, wage: 4000 }

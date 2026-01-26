@@ -4,6 +4,9 @@ let maintenanceItems = [];
 let currentLegalFees = { weightTax: 0, jibaiseki: 0, stamp: 0 };
 let savedCustomers = [];
 let currentCategory = 'basic';
+// グローバル値引き設定（%）
+let globalDiscount = { parts: 0, fluid: 0, wage: 0 };
+
 
 const STORAGE_CUSTOMERS = 'shaken_customers';
 const STORAGE_COMPANY = 'shaken_company';
@@ -406,9 +409,10 @@ function addQuickItem(key, idx) {
     const item = MAINTENANCE_CATEGORIES[key].items[idx];
     const parts = item.parts || (item.price || 0);
     const wage = item.wage || 0;
+    const isFluid = item.isFluid || false;
 
     // 部品と工賃を分けて保持するが、1つの行（アイテム）として追加
-    addItemToTable(item.name, 1, parts, wage);
+    addItemToTable(item.name, 1, parts, wage, isFluid);
 
     // 連続で追加できるようにモーダルは閉じない
     // closeQuickAddModal();
@@ -420,18 +424,31 @@ function addQuickItem(key, idx) {
 function addMaintenanceItem() {
     const name = document.getElementById('newItemName').value.trim();
     const qty = parseInt(document.getElementById('newItemQty').value) || 1;
-    // 手動追加の「単価」はとりあえず部品代として扱う（後で編集可能）
-    const parts = parseInt(document.getElementById('newItemPrice').value) || 0;
+
+    // 3つの入力欄から値を取得
+    const parts = parseInt(document.getElementById('newItemParts').value) || 0;
+    const fluid = parseInt(document.getElementById('newItemFluid').value) || 0;
+    const wage = parseInt(document.getElementById('newItemWage').value) || 0;
+
+    // 鉱油類に値が入力されている場合はisFluid=true
+    const isFluid = fluid > 0;
+
+    // 部品代は、部品入力欄と鉱油類入力欄の合計
+    const totalParts = parts + fluid;
 
     if (!name) { alert('項目名を入力してください'); return; }
-    addItemToTable(name, qty, parts, 0); // 工賃0で追加
+    addItemToTable(name, qty, totalParts, wage, isFluid);
 
+    // 入力欄をクリア
     document.getElementById('newItemName').value = '';
     document.getElementById('newItemQty').value = '1';
-    document.getElementById('newItemPrice').value = '';
+    document.getElementById('newItemParts').value = '';
+    document.getElementById('newItemFluid').value = '';
+    document.getElementById('newItemWage').value = '';
 }
 
-function addItemToTable(name, qty, parts, wage) {
+
+function addItemToTable(name, qty, parts, wage, isFluid = false) {
     const total = (parts + wage);
     maintenanceItems.push({
         id: Date.now(),
@@ -439,6 +456,8 @@ function addItemToTable(name, qty, parts, wage) {
         qty,
         parts,
         wage,
+        isFluid,
+        discount: { parts: 0, wage: 0 }, // 各項目ごとの値引き率（%）
         subItems: [], // 内訳（追加部品など）用
         taxIncludedPrice: Math.round(total * qty * (1 + TAX_RATE))
     });
@@ -446,10 +465,15 @@ function addItemToTable(name, qty, parts, wage) {
     calculateTotals();
 }
 
+
 function renderMaintenanceTable() {
     const tbody = document.getElementById('maintenanceItems');
     tbody.innerHTML = maintenanceItems.map(item => {
         // メイン項目行
+        const partsLabel = item.isFluid ? '鉱油類' : '部品';
+        const discount = item.discount || { parts: 0, wage: 0 };
+        const discountAmt = item.discountAmount || { parts: 0, wage: 0, total: 0 };
+
         const mainRow = `
         <tr class="main-row">
             <td>${escapeHtml(item.name)}</td>
@@ -457,13 +481,20 @@ function renderMaintenanceTable() {
             <td class="text-right">
                 <div style="display: flex; flex-direction: column; gap: 5px;">
                     <div style="display: flex; align-items: center; justify-content: flex-end;">
-                        <span style="font-size: 0.8em; color: #666; margin-right: 5px;">部品</span>
+                        <span style="font-size: 0.8em; color: #666; margin-right: 5px;">${partsLabel}</span>
                         <input type="number" class="form-control price" value="${item.parts}" min="0" placeholder="0" onchange="updateItemParts(${item.id}, this.value)" style="width: 100px;">
+                        <span style="font-size: 0.75em; color: #f57c00; margin: 0 4px; font-weight: 500;">値引</span>
+                        <input type="number" class="form-control price" value="${discount.parts}" min="0" max="100" placeholder="%" onchange="updateItemDiscount(${item.id}, 'parts', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="値引率%">
+                        <span style="font-size: 0.75em; color: #f57c00; margin-left: 4px;">%</span>
                     </div>
                     <div style="display: flex; align-items: center; justify-content: flex-end;">
                         <span style="font-size: 0.8em; color: #666; margin-right: 5px;">工賃</span>
                         <input type="number" class="form-control price" value="${item.wage}" min="0" placeholder="0" onchange="updateItemWage(${item.id}, this.value)" style="width: 100px;">
+                        <span style="font-size: 0.75em; color: #f57c00; margin: 0 4px; font-weight: 500;">値引</span>
+                        <input type="number" class="form-control price" value="${discount.wage}" min="0" max="100" placeholder="%" onchange="updateItemDiscount(${item.id}, 'wage', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="値引率%">
+                        <span style="font-size: 0.75em; color: #f57c00; margin-left: 4px;">%</span>
                     </div>
+                    ${discountAmt.total > 0 ? `<div style="text-align: right; font-size: 0.75em; color: #d32f2f; margin-top: 2px;">値引: -¥${discountAmt.total.toLocaleString()}</div>` : ''}
                 </div>
             </td>
             <td class="text-right">¥${item.taxIncludedPrice.toLocaleString()}</td>
@@ -562,15 +593,48 @@ function updateItemWage(id, val) {
 }
 
 function updateItemTotal(item) {
-    // メイン項目の合計
-    const mainTotal = (item.parts || 0) + (item.wage || 0);
-    const mainTaxIncluded = Math.round(mainTotal * item.qty * (1 + TAX_RATE));
+    // 値引き率の計算（項目ごとの値引き + グローバル値引き）
+    const itemDiscount = item.discount || { parts: 0, wage: 0 };
+
+    // 部品/鉱油類の値引き率（項目値引き + グローバル値引き、最大100%）
+    const partsDiscountRate = Math.min(
+        (itemDiscount.parts || 0) + (item.isFluid ? globalDiscount.fluid : globalDiscount.parts),
+        100
+    ) / 100;
+
+    // 工賃の値引き率
+    const wageDiscountRate = Math.min(
+        (itemDiscount.wage || 0) + globalDiscount.wage,
+        100
+    ) / 100;
+
+    // 値引き前の金額
+    const partsBase = (item.parts || 0) * item.qty;
+    const wageBase = (item.wage || 0) * item.qty;
+
+    // 値引き額
+    const partsDiscount = Math.round(partsBase * partsDiscountRate);
+    const wageDiscount = Math.round(wageBase * wageDiscountRate);
+
+    // 値引き後の金額
+    const partsAfterDiscount = partsBase - partsDiscount;
+    const wageAfterDiscount = wageBase - wageDiscount;
+
+    // 税込金額
+    const mainTaxIncluded = Math.round((partsAfterDiscount + wageAfterDiscount) * (1 + TAX_RATE));
 
     // サブ項目の合計
     const subTaxIncluded = (item.subItems || []).reduce((s, sub) => s + sub.taxIncludedPrice, 0);
 
     // 全体合計（表示用）
     item.taxIncludedPrice = mainTaxIncluded + subTaxIncluded;
+
+    // 値引き情報を保存（表示用）
+    item.discountAmount = {
+        parts: partsDiscount,
+        wage: wageDiscount,
+        total: partsDiscount + wageDiscount
+    };
 
     renderMaintenanceTable();
     calculateTotals();
@@ -582,16 +646,42 @@ function removeItem(id) {
     calculateTotals();
 }
 
+// 項目ごとの値引き率を更新
+function updateItemDiscount(id, type, value) {
+    const item = maintenanceItems.find(i => i.id === id);
+    if (item) {
+        if (!item.discount) item.discount = { parts: 0, wage: 0 };
+        item.discount[type] = parseFloat(value) || 0;
+        updateItemTotal(item);
+    }
+}
+
+// グローバル値引き率を更新
+function updateGlobalDiscount(type, value) {
+    globalDiscount[type] = parseFloat(value) || 0;
+    // 全アイテムを再計算
+    maintenanceItems.forEach(item => updateItemTotal(item));
+}
+
+
+
 function calculateTotals() {
     const maint = maintenanceItems.reduce((s, i) => s + i.taxIncludedPrice, 0);
+    const totalDiscount = maintenanceItems.reduce((s, i) => s + (i.discountAmount?.total || 0), 0);
+
     const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
     const agency = parseInt(document.getElementById('agencyFee').value) || 0;
     const legal = currentLegalFees.weightTax + currentLegalFees.jibaiseki + currentLegalFees.stamp + reserve + agency;
     const grand = maint + legal;
+
     document.getElementById('maintenanceSubtotal').textContent = `¥${maint.toLocaleString()}`;
     document.getElementById('legalFeesSubtotal').textContent = `¥${legal.toLocaleString()}`;
     document.getElementById('grandTotal').textContent = `¥${grand.toLocaleString()}`;
+
+    // 合計値引き額を保存（プレビューで使用）
+    window.totalDiscountAmount = totalDiscount;
 }
+
 
 // フォームクリア
 function clearForm() {
@@ -755,21 +845,26 @@ function generatePreviewHtml() {
                     </tr>
                 </thead>
                 <tbody>${maintenanceItems.length > 0
-            ? maintenanceItems.map(i => `
+            ? maintenanceItems.map(i => {
+                const partsLabel = i.isFluid ? '鉱油類' : '部品';
+                return `
                     <tr>
                         <td>${escapeHtml(i.name)}</td>
                         <td class="text-right">${i.qty}</td>
                         <td class="text-right">
                             <div style="display:flex;justify-content:flex-end;align-items:center;font-size:0.9em;">
-                                <span style="font-size:0.8em;color:#666;margin-right:4px;">部品</span>¥${(i.parts || 0).toLocaleString()}
+                                <span style="font-size:0.8em;color:#666;margin-right:4px;">${partsLabel}</span>¥${(i.parts || 0).toLocaleString()}
                             </div>
                             <div style="display:flex;justify-content:flex-end;align-items:center;font-size:0.9em;">
                                 <span style="font-size:0.8em;color:#666;margin-right:4px;">工賃</span>¥${(i.wage || 0).toLocaleString()}
                             </div>
+                            ${i.discountAmount && i.discountAmount.total > 0 ? `<div style="font-size:0.75em;color:#d32f2f;text-align:right;margin-top:2px;">値引: -¥${i.discountAmount.total.toLocaleString()}</div>` : ''}
                         </td>
                         <td class="text-right">¥${i.taxIncludedPrice.toLocaleString()}</td>
-                    </tr>`).join('')
+                    </tr>`;
+            }).join('')
             : '<tr><td colspan="5" style="text-align:center;color:#999">整備項目なし</td></tr>'}
+            ${window.totalDiscountAmount > 0 ? `<tr style="color:#d32f2f;"><td colspan="4" class="text-right" style="font-weight:bold;">値引き合計</td><td class="text-right" style="font-weight:bold;">-¥${window.totalDiscountAmount.toLocaleString()}</td></tr>` : ''}
             <tr><td colspan="4" class="text-right" style="border-top:2px solid #ddd;font-weight:bold;">整備費用 小計(税込)</td><td class="text-right" style="border-top:2px solid #ddd;font-weight:bold;font-size:1.1em;">¥${maint.toLocaleString()}</td></tr>
                 </tbody>
             </table>
