@@ -484,14 +484,14 @@ function renderMaintenanceTable() {
                         <span style="font-size: 0.8em; color: #666; margin-right: 5px;">${partsLabel}</span>
                         <input type="number" class="form-control price" value="${item.parts}" min="0" placeholder="0" onchange="updateItemParts(${item.id}, this.value)" style="width: 100px;">
                         <span style="font-size: 0.75em; color: #f57c00; margin: 0 4px; font-weight: 500;">値引</span>
-                        <input type="number" class="form-control price" value="${discount.parts}" min="0" max="100" placeholder="%" onchange="updateItemDiscount(${item.id}, 'parts', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="値引率%">
+                        <input type="number" class="form-control price" value="${discount.parts}" min="0" max="100" placeholder="${item.isFluid ? globalDiscount.fluid : globalDiscount.parts}%" onchange="updateItemDiscount(${item.id}, 'parts', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="全体${item.isFluid ? globalDiscount.fluid : globalDiscount.parts}% + 個別入力%">
                         <span style="font-size: 0.75em; color: #f57c00; margin-left: 4px;">%</span>
                     </div>
                     <div style="display: flex; align-items: center; justify-content: flex-end;">
                         <span style="font-size: 0.8em; color: #666; margin-right: 5px;">工賃</span>
                         <input type="number" class="form-control price" value="${item.wage}" min="0" placeholder="0" onchange="updateItemWage(${item.id}, this.value)" style="width: 100px;">
                         <span style="font-size: 0.75em; color: #f57c00; margin: 0 4px; font-weight: 500;">値引</span>
-                        <input type="number" class="form-control price" value="${discount.wage}" min="0" max="100" placeholder="%" onchange="updateItemDiscount(${item.id}, 'wage', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="値引率%">
+                        <input type="number" class="form-control price" value="${discount.wage}" min="0" max="100" placeholder="${globalDiscount.wage}%" onchange="updateItemDiscount(${item.id}, 'wage', this.value)" style="width: 90px; padding-left: 5px; text-align: right;" title="全体${globalDiscount.wage}% + 個別入力%">
                         <span style="font-size: 0.75em; color: #f57c00; margin-left: 4px;">%</span>
                     </div>
                     ${discountAmt.total > 0 ? `<div style="text-align: right; font-size: 0.75em; color: #d32f2f; margin-top: 2px;">値引: -¥${discountAmt.total.toLocaleString()}</div>` : ''}
@@ -592,7 +592,16 @@ function updateItemWage(id, val) {
     }
 }
 
-function updateItemTotal(item) {
+// グローバル値引き率を更新
+function updateGlobalDiscount(type, value) {
+    globalDiscount[type] = parseFloat(value) || 0;
+    // 全アイテムを再計算＆再描画（プレースホルダー更新のため）
+    maintenanceItems.forEach(item => updateItemTotal(item, false)); // false = 再描画しない（ループ内だから）
+    renderMaintenanceTable(); // 最後にまとめて再描画
+    calculateTotals();
+}
+
+function updateItemTotal(item, shouldRender = true) {
     // 値引き率の計算（項目ごとの値引き + グローバル値引き）
     const itemDiscount = item.discount || { parts: 0, wage: 0 };
 
@@ -636,9 +645,29 @@ function updateItemTotal(item) {
         total: partsDiscount + wageDiscount
     };
 
-    renderMaintenanceTable();
-    calculateTotals();
+    if (shouldRender) {
+        renderMaintenanceTable();
+        calculateTotals();
+    }
 }
+
+// Enterキーでの追加機能のセットアップ
+document.addEventListener('DOMContentLoaded', () => {
+    const inputs = ['newItemName', 'newItemQty', 'newItemParts', 'newItemFluid', 'newItemWage'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    addMaintenanceItem();
+                    // フォーカスを項目名に戻す
+                    document.getElementById('newItemName').focus();
+                }
+            });
+        }
+    });
+});
+
 
 function removeItem(id) {
     maintenanceItems = maintenanceItems.filter(i => i.id !== id);
@@ -655,14 +684,6 @@ function updateItemDiscount(id, type, value) {
         updateItemTotal(item);
     }
 }
-
-// グローバル値引き率を更新
-function updateGlobalDiscount(type, value) {
-    globalDiscount[type] = parseFloat(value) || 0;
-    // 全アイテムを再計算
-    maintenanceItems.forEach(item => updateItemTotal(item));
-}
-
 
 
 function calculateTotals() {
