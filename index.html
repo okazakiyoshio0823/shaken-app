@@ -62,127 +62,282 @@
             margin-bottom: 5px !important;
         }
 
+        /* 限界まで詰める (Super Compact) */
+        .print-super-compact {
+            font-size: 0.75em !important;
+        }
+
+        .print-super-compact .preview-table th,
+        .print-super-compact .preview-table td {
+            padding: 1px 3px !important;
+            line-height: 1.1 !important;
+        }
+
+        .print-super-compact .preview-section {
+            margin: 3px 0 3px !important;
+            padding: 1px 6px !important;
+            font-size: 0.95em !important;
+        }
+
+        .print-super-compact .preview-info-item {
+            margin-bottom: 0px !important;
+        }
+
+        .print-super-compact .preview-title {
+            font-size: 1.1em !important;
+            margin-bottom: 3px !important;
+        }
+
+        /* 約款セクション（通常は非表示、JSで制御） */
+        #printTerms {
+            display: none;
+            margin-top: 20px;
+            page-break-before: auto;
+            /* 必要に応じてJSで制御 */
+        }
+
+        #printTerms h4 {
+            margin: 0 0 5px 0;
+            font-size: 1.1em;
+            text-align: center;
+        }
+
+        #printTerms .terms-content {
+            font-size: 0.8em;
+            color: #555;
+            line-height: 1.4;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+
+        /* 印刷用スタイル修正 */
         @media print {
+            @page {
+                margin: 0;
+                size: A4 portrait;
+            }
 
-            /* 1. 全ての直下要素を非表示にする（ホワイトリスト方式） */
-            body>* {
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: white;
+                -webkit-print-color-adjust: exact;
+            }
+
+            /* 既存のUI非表示 */
+            .container,
+            .no-print,
+            h1,
+            .input-group,
+            .action-buttons,
+            #historyContainer,
+            .tab-buttons,
+            .section-title {
                 display: none !important;
             }
 
-            /* 2. プレビューモーダルだけを表示 */
-            body>#previewModal {
+            /* 印刷プレビュー領域の表示 */
+            #printPreview {
                 display: block !important;
-                /* position: static にして通常のドキュメントフローに戻す */
-                position: static !important;
-                visibility: visible !important;
-                width: 100% !important;
-                height: auto !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-                background: white !important;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                border: none;
+                box-shadow: none;
+                background-color: white;
             }
 
-            /* 3. ルート要素の高さ制限を解除 */
-            html,
-            body {
-                width: 100% !important;
-                height: auto !important;
-                min-height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-                background: white !important;
+            /* 固定ページレイアウト用 */
+            .print-page {
+                width: 100%;
+                /* A4高さ: 約1123px。
+                   ブラウザ/プリンタの余白補正のため少し安全マージンを取る */
+                height: 1115px;
+                page-break-after: always;
+                position: relative;
+                /* 印刷時の内部余白（これが実際の見た目の余白になる） */
+                padding: 40px 50px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                /* コンテンツのはみ出し防止 */
             }
 
-            /* 4. モーダル内部のスタイルリセット */
-            #previewModal .modal-content {
-                display: block !important;
-                position: static !important;
-                width: 100% !important;
-                height: auto !important;
-                max-width: none !important;
-                max-height: none !important;
-                box-shadow: none !important;
-                border: none !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-            }
-
-            /* .modal-body のスクロール設定を解除（これが白紙の原因） */
-            #previewModal .modal-body {
-                display: block !important;
-                position: static !important;
-                width: 100% !important;
-                height: auto !important;
-                max-height: none !important;
-                overflow: visible !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                flex: none !important;
-            }
-
-            /* 5. プレビュー本文の表示 */
-            #previewContent {
-                display: block !important;
-                width: 100% !important;
-                height: auto !important;
-                overflow: visible !important;
-            }
-
-            /* 6. 印刷用コンテナの余白調整 */
-            .print-preview {
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                /* パディングをゼロにしてブラウザの余白設定に委ねる、あるいは最小限にする */
-                border: none !important;
-                box-shadow: none !important;
-                min-height: 0 !important;
-                /* style.cssのmin-heightを打ち消し */
-            }
-
-            /* 不要なUI非表示 */
-            .modal-header,
-            .modal-footer,
-            .modal-close {
-                display: none !important;
-            }
-
-            /* フォント調整 */
-            body {
-                font-size: 10pt;
-                /* 少し小さくして収まりを良くする */
-            }
-
-            /* 改ページ制御 */
-            .print-preview {
-                page-break-inside: auto;
-            }
-
-            table {
-                page-break-inside: auto;
-                margin-bottom: 20px;
-            }
-
-            tr {
-                page-break-inside: avoid;
+            .print-page:last-child {
                 page-break-after: auto;
             }
 
-            thead {
-                display: table-header-group;
+            /* ページ内コンテンツの調整 */
+            .print-page .header-section {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #333;
+                padding-bottom: 10px;
             }
 
-            tfoot {
-                display: table-footer-group;
+            .print-page .page-title {
+                font-size: 2em;
+                font-weight: bold;
+                text-align: center;
+                margin: 20px 0;
             }
 
-            /* 空白ページ対策 */
-            * {
-                float: none !important;
+            .print-page .customer-vehicle-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 30px;
+                margin-top: 20px;
             }
+
+            .print-page .info-box {
+                border: 1px solid #ccc;
+                padding: 15px;
+                border-radius: 4px;
+            }
+
+            .print-page .info-box h3 {
+                margin-top: 0;
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 5px;
+                font-size: 1.1em;
+            }
+
+            /* メンテナンス行 */
+            .maintenance-row {
+                height: 40px;
+                /* 行の高さを固定 */
+                border-bottom: 1px solid #ccc;
+            }
+
+            .maintenance-row td {
+                padding: 0 8px;
+                vertical-align: middle;
+            }
+
+            /* 約款セクション（最終ページ用） */
+            .terms-section {
+                margin-top: auto;
+                /* ページ下部に押し下げる */
+                border: 2px solid #555;
+                padding: 20px;
+                font-size: 0.85em;
+                background-color: #fff;
+                flex-grow: 1;
+                /* 残りのスペースを埋める */
+            }
+
+            /* モーダル関連の強制上書きリセット（念のため） */
+            body>#previewModal {
+                display: block !important;
+                position: static !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+            }
+
+            html,
+            body {
+                height: auto !important;
+                overflow: visible !important;
+            }
+        }
+
+        /* 4. モーダル内部のスタイルリセット */
+        #previewModal .modal-content {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            height: auto !important;
+            max-width: none !important;
+            max-height: none !important;
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+        }
+
+        /* .modal-body のスクロール設定を解除（これが白紙の原因） */
+        #previewModal .modal-body {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            flex: none !important;
+        }
+
+        /* 5. プレビュー本文の表示 */
+        #previewContent {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+
+        /* 6. 印刷用コンテナの余白調整 */
+        .print-preview {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            /* パディングをゼロにしてブラウザの余白設定に委ねる、あるいは最小限にする */
+            border: none !important;
+            box-shadow: none !important;
+            min-height: 0 !important;
+            /* style.cssのmin-heightを打ち消し */
+        }
+
+        /* 不要なUI非表示 */
+        .modal-header,
+        .modal-footer,
+        .modal-close {
+            display: none !important;
+        }
+
+        /* フォント調整 */
+        body {
+            font-size: 10pt;
+            /* 少し小さくして収まりを良くする */
+        }
+
+        /* 改ページ制御 */
+        .print-preview {
+            page-break-inside: auto;
+        }
+
+        table {
+            page-break-inside: auto;
+            margin-bottom: 20px;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tfoot {
+            display: table-footer-group;
+        }
+
+        /* 空白ページ対策 */
+        * {
+            float: none !important;
+        }
         }
     </style>
 </head>
@@ -682,6 +837,7 @@
                 <h2>📋 整備項目を選択</h2>
                 <button class="modal-close" onclick="closeQuickAddModal()">×</button>
             </div>
+            <button class="modal-close-absolute" onclick="closeQuickAddModal()" style="display: block;">×</button>
             <div class="modal-body">
                 <div class="category-tabs" id="categoryTabs"></div>
                 <div class="quick-items-list" id="quickItemsList"></div>
