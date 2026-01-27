@@ -728,11 +728,253 @@ function closePreviewModal() {
 }
 
 function generatePreviewHtml() {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
-    const companyName = document.getElementById('companyName').value || '○○自動車整備';
-    const companyAddress = document.getElementById('companyAddress').value || '';
-    const companyTel = document.getElementById('companyTel').value || '';
+    const data = getCurrentEstimateData();
+
+    const companyName = document.getElementById('companyName').value;
+    const companyTel = document.getElementById('companyTel').value;
+    const companyAddress = document.getElementById('companyAddress').value;
+    // const companyLogo = document.getElementById('companyLogo').files[0]; 
+
+    const userName = document.getElementById('userName').value;
+    const userAddress = document.getElementById('userAddress').value;
+    const userTel = document.getElementById('userTel').value;
+
+    const ownerName = document.getElementById('ownerName').value;
+    const ownerAddress = document.getElementById('ownerAddress').value;
+    const ownerSameAsUser = document.getElementById('ownerSameAsUser').checked;
+
+    const plate = getPlateNumber();
+    const carName = document.getElementById('carName').value;
+    const carModel = document.getElementById('carModel').value;
+    const chassisNumber = document.getElementById('chassisNumber').value;
+    const mileage = document.getElementById('mileage').value;
+
+    // 経過年数の計算
+    let ageLabel = '-';
+    const firstRegElement = document.getElementById('firstRegistrationDate');
+    const firstReg = firstRegElement ? firstRegElement.value : '';
+
+    if (firstReg) {
+        const parts = firstReg.split('-');
+        const regYear = parseInt(parts[0]);
+        const regMonth = parseInt(parts[1]);
+        const now = new Date();
+        let age = now.getFullYear() - regYear;
+        if (now.getMonth() + 1 < regMonth) age--;
+        ageLabel = age + '年';
+    } else {
+        const va = document.getElementById('vehicleAge').value;
+        ageLabel = { ecocar: 'エコカー', over13: '13年超', over18: '18年超' }[va] || '標準';
+    }
+
+    const maint = parseCurrency(document.getElementById('maintenanceTotal').textContent);
+    const legal = parseCurrency(document.getElementById('legalTotal').textContent);
+    const grand = document.getElementById('grandTotal').textContent;
+    const reserve = parseCurrency(document.getElementById('reserveFeeInput').value);
+    const agency = parseCurrency(document.getElementById('agencyFeeInput').value);
+    const notes = document.getElementById('notes').value;
+
+    const maintenanceItems = getAllMaintenanceItems();
+
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+
+    let logoHtml = '';
+    if (window.currentLogoDataUrl) {
+        logoHtml = `<img src="${window.currentLogoDataUrl}" style="max-height:60px; max-width:200px; margin-bottom:10px;">`;
+    }
+
+    let html = '<div id="printPreview">';
+
+    // ====================================================
+    // ページ1: 表紙
+    // ====================================================
+    html += `
+    <div class="print-page">
+        <div class="header-section">
+            <div class="company-info" style="text-align: right; width: 100%;">
+                ${logoHtml}<br>
+                <div style="font-size: 1.2em; font-weight: bold;">${escapeHtml(companyName)}</div>
+                <div style="font-size: 0.9em;">${escapeHtml(companyAddress)}</div>
+                <div style="font-size: 0.9em;">TEL: ${escapeHtml(companyTel)}</div>
+            </div>
+        </div>
+
+        <div class="page-title">御 見 積 書</div>
+        <div style="text-align: right; margin-bottom: 20px;">発行日: ${dateStr}</div>
+
+        <div class="customer-vehicle-grid">
+            <div class="info-box">
+                <h3>👤 お客様情報</h3>
+                <div style="line-height: 1.8;">
+                    <div><span style="display:inline-block; width:70px;">お名前:</span> <strong>${escapeHtml(userName)}</strong> 様</div>
+                    <div><span style="display:inline-block; width:70px;">ご住所:</span> ${escapeHtml(userAddress)}</div>
+                    <div><span style="display:inline-block; width:70px;">電話番号:</span> ${escapeHtml(userTel)}</div>
+                    ${!ownerSameAsUser ? `<div style="margin-top:5px; padding-top:5px; border-top:1px dashed #ccc;"><span style="display:inline-block; width:70px;">所有者:</span>${escapeHtml(ownerName)}</div>` : ''}
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <h3>🚙 車両情報</h3>
+                <div style="line-height: 1.8;">
+                    <div><span style="display:inline-block; width:70px;">車名:</span> ${escapeHtml(carName)}</div>
+                    <div><span style="display:inline-block; width:70px;">登録番号:</span> <strong>${escapeHtml(plate)}</strong></div>
+                    <div><span style="display:inline-block; width:70px;">型式:</span> ${escapeHtml(carModel)}</div>
+                    <div><span style="display:inline-block; width:70px;">車台番号:</span> ${escapeHtml(chassisNumber)}</div>
+                    <div><span style="display:inline-block; width:70px;">走行距離:</span> ${mileage ? mileage + ' km' : '-'}</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: auto; text-align: center; color: #777; font-size: 0.9em; padding-bottom: 50px;">
+            <p>この度は当店をご利用いただき、誠にありがとうございます。</p>
+            <p>お見積り内容は次ページ以降に記載しております。</p>
+        </div>
+    </div>`;
+
+    // ====================================================
+    // ページ2〜: 整備明細
+    // ====================================================
+    // 調整: ページごとの行数 (ヘッダーやフッターの高さに応じて調整)
+    const ITEMS_PER_PAGE = 20;
+    const totalPages = Math.max(1, Math.ceil(maintenanceItems.length / ITEMS_PER_PAGE));
+
+    for (let p = 0; p < totalPages; p++) {
+        const start = p * ITEMS_PER_PAGE;
+        const end = start + ITEMS_PER_PAGE;
+        const itemsSlice = maintenanceItems.slice(start, end);
+
+        let rowsHtml = '';
+        itemsSlice.forEach(i => {
+            const partsLabel = i.isFluid ? '鉱油' : '部品';
+            rowsHtml += `
+             <tr class="maintenance-row">
+                 <td>${escapeHtml(i.name)}</td>
+                 <td class="text-right">${i.qty}</td>
+                 <td class="text-right">
+                    ¥${(i.parts || 0).toLocaleString()} <span style="font-size:0.75em; color:#666;">(${partsLabel})</span><br>
+                    ¥${(i.wage || 0).toLocaleString()} <span style="font-size:0.75em; color:#666;">(工賃)</span>
+                 </td>
+                 <td class="text-right">¥${i.taxIncludedPrice.toLocaleString()}</td>
+             </tr>`;
+        });
+
+        const remainingRows = ITEMS_PER_PAGE - itemsSlice.length;
+        for (let k = 0; k < remainingRows; k++) {
+            rowsHtml += `
+            <tr class="maintenance-row">
+                <td>&nbsp;</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>`;
+        }
+
+        html += `
+        <div class="print-page">
+            <div style="margin-bottom: 10px; text-align:right; font-size:0.8em; color:#666;">
+                 No. ${escapeHtml(plate)} / ${p + 1}
+            </div>
+            <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px;">整備明細 (${p + 1}/${totalPages})</h3>
+            
+            <table class="preview-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                <thead style="background: #f0f0f0;">
+                    <tr style="height: 35px; border-bottom: 2px solid #aaa;">
+                        <th style="width: 45%; text-align: left; padding-left: 8px;">整備項目</th>
+                        <th style="width: 10%; text-align: right; padding-right: 8px;">数量</th>
+                        <th style="width: 25%; text-align: right; padding-right: 8px;">単価(部品/工賃)</th>
+                        <th style="width: 20%; text-align: right; padding-right: 8px;">金額(税込)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+            ${p === totalPages - 1 ?
+                `<div style="text-align: right; margin-top: 10px; font-weight: bold; font-size: 1.1em; border-top: 1px solid #333; padding-top: 5px;">整備小計: ¥${maint.toLocaleString()}</div>`
+                : ''}
+        </div>`;
+    }
+
+    // ====================================================
+    // 最終ページ: 諸費用・合計・約款
+    // ====================================================
+    html += `
+    <div class="print-page">
+        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 20px;">お見積り総括</h3>
+
+        <div style="display: flex; gap: 40px; align-items: flex-start; margin-bottom: 30px;">
+            <div style="flex: 1;">
+                <h4 style="margin-top: 0; background: #eee; padding: 5px; font-size:1em;">法定費用・諸費用</h4>
+                <table class="preview-table" style="width: 100%; font-size: 0.9em;">
+                    <tr><td>自動車重量税</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
+                    <tr><td>自賠責保険料</td><td class="text-right">¥${currentLegalFees.jibaiseki.toLocaleString()}</td></tr>
+                    <tr><td>印紙代</td><td class="text-right">¥${currentLegalFees.stamp.toLocaleString()}</td></tr>
+                    <tr><td>検査予約手数料</td><td class="text-right">¥${reserve.toLocaleString()}</td></tr>
+                    <tr><td>代行手数料</td><td class="text-right">¥${agency.toLocaleString()}</td></tr>
+                    <tr style="border-top: 2px solid #ccc;"><td class="text-right"><strong>諸費用 小計</strong></td><td class="text-right"><strong>¥${legal.toLocaleString()}</strong></td></tr>
+                </table>
+            </div>
+
+            <div style="flex: 1;">
+                 <h4 style="margin-top: 0; background: #eee; padding: 5px; font-size:1em;">お支払い金額</h4>
+                 <div style="font-size: 2.2em; font-weight: bold; text-align: right; margin: 20px 0; border-bottom: 2px solid #333;">
+                    ¥${grand.toLocaleString()}
+                 </div>
+                 <div style="text-align:right; font-size:0.9em; color:#666;">(内消費税等: ¥${(Math.floor(maint - maint / 1.1)).toLocaleString()})</div>
+                 
+                 ${notes ? `<div style="border: 1px dashed #ccc; padding: 10px; margin-top: 20px; font-size: 0.9em; background:#fafafa;"><strong>備考:</strong><br>${escapeHtml(notes).replace(/\n/g, '<br>')}</div>` : ''}
+            </div>
+        </div>
+
+        <div class="terms-section">
+            <h4 style="text-align:center; margin-top:0; border-bottom:1px solid #ccc; padding-bottom:5px;">整備保証書 ・ 免責事項</h4>
+            
+            <div style="font-size: 0.9em; margin-bottom: 15px;">
+                <strong>【整備保証】</strong><br>
+                当社が実施した整備作業において、万一整備上の欠陥により不具合が生じた場合、以下の期間及び条件にて保証いたします。<br>
+                <span style="font-weight:bold; text-decoration:underline;">保証期間：整備完了日より6ヶ月、または走行距離5,000kmのいずれか早い時点まで</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <strong>1. 保証の適用除外（免責事項）</strong><br>
+                    以下の事項に該当する場合は、保証期間内であっても保証の対象外となります。
+                    <ul style="padding-left: 20px; margin: 5px 0; font-size: 0.95em;">
+                        <li>通常の使用による摩耗、消耗、経年劣化（ブレーキパッド、タイヤ、油脂類、ゴム部品等）。</li>
+                        <li>当社以外で実施された修理、改造、分解整備に起因する不具合。</li>
+                        <li>お客様の持ち込み部品（中古部品含む）の使用に起因する不具合。</li>
+                        <li>レース、ラリー、過積載など、通常の使用限度を超えた酷使に起因する故障。</li>
+                        <li>天災地変、火災、事故、盗難などによる損傷。</li>
+                        <li>日常点検または法定定期点検の未実施に起因する故障。</li>
+                    </ul>
+                </div>
+                <div>
+                    <strong>2. 損害の範囲</strong><br>
+                    本保証は、当該不具合箇所の再整備または部品交換に限らせていただきます。
+                    <ul style="padding-left: 20px; margin: 5px 0; font-size: 0.95em;">
+                        <li>車両を使用できなかったことによる間接的損害（電話代、レンタカー代、休業補償、商業損失等）については保証いたしません。</li>
+                        <li>車両の搬送費用（レッカー代等）は保証対象外となります。</li>
+                    </ul>
+                    <br>
+                    <strong>3. 保証請求の手続き</strong><br>
+                    保証修理をご依頼の際は、必ず本見積書をご提示の上、不具合発生後速やかに当社へご連絡ください。
+                </div>
+            </div>
+            
+             <div class="preview-stamps" style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 20px;">
+                <div class="preview-stamp" style="border: 1px solid #333; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">担当</div>
+                <div class="preview-stamp" style="border: 1px solid #333; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">確認</div>
+            </div>
+        </div>
+    </div>`;
+
+    html += '</div>';
+    return html;
+}
+
+
+/* Orphaned Code Block Start
     const userName = document.getElementById('userName').value || '';
     const userAddress = document.getElementById('userAddress').value || '';
     const userTel = document.getElementById('userTel').value || '';
@@ -871,13 +1113,7 @@ function generatePreviewHtml() {
             
             ${notes ? `<div class="preview-notes"><strong>備考:</strong><br>${escapeHtml(notes).replace(/\n/g, '<br>')}</div>` : ''}
             
-            <div class="preview-stamps">
-                <div class="preview-stamp">担当</div>
-                <div class="preview-stamp">確認</div>
-            </div>
-        </div>
-    `;
-}
+*/
 
 function getPlateNumber() {
     const r = document.getElementById('plateRegion').value;
@@ -925,34 +1161,139 @@ function exportCustomersToFile() {
 // 自動レイアウト調整
 // コンテンツの高さを計測し、ページ境界（A4目安）をわずかに超えている場合に圧縮を適用する
 function autoAdjustPrintLayout() {
-    const preview = document.getElementById('printPreview'); // Changed from 'previewContent' to 'printPreview'
+    return; // Fixed-layout: disabled
+    const preview = document.getElementById('printPreview');
     if (!preview) return;
 
+    // 約款セクションを取得（なければ作成）
+    let terms = document.getElementById('printTerms');
+    if (!terms) {
+        terms = document.createElement('div');
+        terms.id = 'printTerms';
+        // Flexboxを使用して縦方向に均等配置する設定を追加
+        terms.innerHTML = `
+            <div class="terms-container" style="border: 2px solid #555; padding: 15px; margin-top: 30px; background-color: #fff; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h4 style="text-align:center; margin-top:0; border-bottom:1px solid #ccc; padding-bottom:5px;">整備保証書 ・ 免責事項</h4>
+                    
+                    <div style="font-size: 0.85em; margin-bottom: 10px;">
+                        <strong>【整備保証】</strong><br>
+                        当社が実施した整備作業において、万一整備上の欠陥により不具合が生じた場合、以下の期間及び条件にて保証いたします。<br>
+                        <span style="font-weight:bold; text-decoration:underline;">保証期間：整備完了日より6ヶ月、または走行距離5,000kmのいずれか早い時点まで</span>
+                    </div>
+                </div>
+
+                <div class="terms-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 0.75em; line-height: 1.4;">
+                    <div>
+                        <strong>1. 保証の適用除外（免責事項）</strong><br>
+                        以下の事項に該当する場合は、保証期間内であっても保証の対象外となります。
+                        <ul style="padding-left: 15px; margin: 5px 0;">
+                            <li>通常の使用による摩耗、消耗、経年劣化（ブレーキパッド、タイヤ、油脂類、ゴム部品等）。</li>
+                            <li>当社以外で実施された修理、改造、分解整備に起因する不具合。</li>
+                            <li>お客様の持ち込み部品（中古部品含む）の使用に起因する不具合。</li>
+                            <li>レース、ラリー、過積載など、通常の使用限度を超えた酷使に起因する故障。</li>
+                            <li>天災地変（地震、台風、水害、落雷等）、火災、事故、盗難などによる損傷。</li>
+                            <li>日常点検または法定定期点検の未実施に起因する故障。</li>
+                            <li>機能上影響のない感覚的な現象（音、振動、オイルの滲み等）。</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <strong>2. 損害の範囲</strong><br>
+                        本保証は、当該不具合箇所の再整備または部品交換に限らせていただきます。
+                        <ul style="padding-left: 15px; margin: 5px 0;">
+                            <li>車両を使用できなかったことによる間接的損害（電話代、レンタカー代、休業補償、商業損失、精神的苦痛等）については、いかなる場合も保証いたしません。</li>
+                            <li>車両の搬送費用（レッカー代等）は保証対象外となります。</li>
+                        </ul>
+                        <br>
+                        <strong>3. 保証請求の手続き</strong><br>
+                        保証修理をご依頼の際は、必ず本見積書（整備その他記録簿）をご提示の上、不具合発生後速やかに当社へご連絡ください。事前に連絡なく他工場で修理された場合の費用は負担いたしかねます。
+                    </div>
+                </div>
+            </div>
+        `;
+        preview.appendChild(terms);
+    }
+
     // まず標準に戻して高さを計測
-    preview.classList.remove('print-compact', 'print-eco');
+    preview.classList.remove('print-compact', 'print-eco', 'print-super-compact');
+    terms.style.display = 'none'; // 一旦隠す
+
+    // スタイルリセット
+    const termsContainer = terms.querySelector('.terms-container');
+    termsContainer.style.minHeight = '';
 
     // A4高さの目安 (96dpiで約1123px。ブラウザの標準余白(約25mm)を引くと印刷可能領域は約980px程度)
-    const PAGE_HEIGHT = 980;
-    const contentHeight = preview.scrollHeight;
+    // 余白0mm設定にしたため、利用可能領域は増えるが、安全マージンとして1050px程度を見る
+    // テスト調整: 余白0mmなら1100px近くまで使えるが、フッター余白考慮して1080px
+    const PAGE_HEIGHT = 1080;
 
-    // ページ数計算（切り上げ）
-    const pages = Math.ceil(contentHeight / PAGE_HEIGHT);
+    // 計測関数
+    const checkLayout = () => {
+        const h = preview.scrollHeight;
+        const p = Math.ceil(h / PAGE_HEIGHT);
+        const r = h % PAGE_HEIGHT;
+        const isOrphan = (p > 1 && r > 0 && r < (PAGE_HEIGHT * 0.3));
+        return { height: h, pages: p, remainder: r, isOrphan: isOrphan };
+    };
 
-    // 余り（最後のページの高さ）
-    const remainder = contentHeight % PAGE_HEIGHT;
+    let status = checkLayout();
+    console.log(`Layout Check 1 (Normal): Pages ${status.pages}, Remainder ${status.remainder}`);
 
-    // 閾値: 最後のページが「ページの30%以下」しかない場合、それは「孤立した余り」とみなす
-    const ORPHAN_THRESHOLD = PAGE_HEIGHT * 0.3;
-
-    console.log(`Auto Layout Analysis: Height ${contentHeight}px, Pages ${pages}, Remainder ${remainder}px`);
-
-    // 1ページ以上あり、かつ余りが閾値以下（またはページまたぎギリギリ）の場合
-    if (pages > 1 && remainder > 0 && remainder < ORPHAN_THRESHOLD) {
-        console.log('Orphan detected! Switching to Compact mode.');
+    // ステップ1: 1ページに収まりそうで収まっていない場合 -> Compact
+    if (status.pages > 1) {
+        // 少しはみ出しているだけならCompactを試す
         preview.classList.add('print-compact');
+        status = checkLayout();
+        console.log(`Layout Check 2 (Compact): Pages ${status.pages}`);
 
-        // 再チェック：Compactでもまだダメなら
-        // このロジックは再帰的に呼ぶこともできるが、無限ループ防止のため簡易的に済ませる
+        if (status.pages > 1) {
+            // ステップ2: まだ収まらないなら -> Super Compact
+            preview.classList.remove('print-compact');
+            preview.classList.add('print-super-compact');
+            status = checkLayout();
+            console.log(`Layout Check 3 (Super): Pages ${status.pages}`);
+
+            if (status.pages > 1) {
+                // ステップ3: それでも2ページ以上になる場合
+                // 無理に1ページにせず、2ページ目の空白を約款で埋める
+
+                // デザイン重視でCompactに戻す（Super Compactだと約款が小さくなりすぎるため）
+                preview.classList.remove('print-super-compact');
+                preview.classList.add('print-compact');
+
+                // 約款を表示
+                terms.style.display = 'block';
+
+                // 自動伸長ロジック
+                // 約款を表示した状態で再計測
+                const statusWithTerms = checkLayout();
+                const remainder = statusWithTerms.remainder;
+
+                // ページの残り高さを計算（余白バッファを50px程度確保）
+                // もし remainder が 0 なら丁度埋まっている
+                // もし remainder が小さい場合、それは「新しいページの頭」に来ている可能性があるが、
+                // ここでは「既存ページの残り」を埋めることを想定
+
+                let fillHeight = 0;
+
+                // 現在のページ内での空きスペース
+                if (remainder > 0) {
+                    fillHeight = PAGE_HEIGHT - remainder - 40; // 40pxは安全マージン
+                }
+
+                // 現在の約款の高さ
+                const currentFnHeight = termsContainer.offsetHeight;
+
+                // 拡張後の高さ
+                const newHeight = currentFnHeight + fillHeight;
+
+                // あまりに大きくなりすぎる（ページをまたぐ）のを防ぐ制限
+                if (fillHeight > 50 && newHeight < 1000) {
+                    termsContainer.style.minHeight = `${newHeight}px`;
+                    console.log(`Expading Terms: Added ${fillHeight}px. New Height: ${newHeight}px`);
+                }
+            }
+        }
     }
 }
 
@@ -1724,13 +2065,8 @@ function saveEstimateToHistory() {
     if (savedEstimates.length > 100) savedEstimates.pop(); // 最大100件
 
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
-    alert('✅ 見積を履歴に保存しました。PDFを作成します...');
-
-    // PDFとして保存（プレビューを表示してから保存）
-    setTimeout(() => {
-        // 現在の入力内容を確実に反映するために少し待機
-        generatePDF();
-    }, 500);
+    localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
+    alert('✅ 見積を履歴に保存しました');
 }
 
 // 見積履歴モーダルを表示
