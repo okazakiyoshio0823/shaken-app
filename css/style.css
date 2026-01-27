@@ -363,6 +363,7 @@ body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 .preview-modal {
@@ -941,4 +942,31 @@ body {
     display: block;
     max-width: 100%;
     margin: 0 auto;
+}
+
+/* Absolute Close Button for Modals */
+.modal-close-absolute {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: #f44336;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.modal-close-absolute:hover {
+    background: #d32f2f;
+    transform: scale(1.1);
 }
