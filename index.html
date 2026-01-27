@@ -126,9 +126,12 @@
                 -webkit-print-color-adjust: exact;
             }
 
-            /* 既存のUI非表示 */
+            /* 全てのUIとモーダルを一旦非表示にする */
+            .app-container,
             .container,
             .no-print,
+            .modal-overlay,
+            .modal,
             h1,
             .input-group,
             .action-buttons,
@@ -136,6 +139,20 @@
             .tab-buttons,
             .section-title {
                 display: none !important;
+            }
+
+            /* プレビューモーダルとそのコンテンツだけを印刷対象にする */
+            #previewModal {
+                display: block !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                z-index: auto !important;
             }
 
             /* 印刷プレビュー領域の表示 */
@@ -248,96 +265,95 @@
                 height: auto !important;
                 overflow: visible !important;
             }
-        }
 
-        /* 4. モーダル内部のスタイルリセット */
-        #previewModal .modal-content {
-            display: block !important;
-            position: static !important;
-            width: 100% !important;
-            height: auto !important;
-            max-width: none !important;
-            max-height: none !important;
-            box-shadow: none !important;
-            border: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: visible !important;
-        }
+            /* 4. モーダル内部のスタイルリセット */
+            #previewModal .modal-content {
+                display: block !important;
+                position: static !important;
+                width: 100% !important;
+                height: auto !important;
+                max-width: none !important;
+                max-height: none !important;
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
 
-        /* .modal-body のスクロール設定を解除（これが白紙の原因） */
-        #previewModal .modal-body {
-            display: block !important;
-            position: static !important;
-            width: 100% !important;
-            height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            flex: none !important;
-        }
+            /* .modal-body のスクロール設定を解除（これが白紙の原因） */
+            #previewModal .modal-body {
+                display: block !important;
+                position: static !important;
+                width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                flex: none !important;
+            }
 
-        /* 5. プレビュー本文の表示 */
-        #previewContent {
-            display: block !important;
-            width: 100% !important;
-            height: auto !important;
-            overflow: visible !important;
-        }
+            /* 5. プレビュー本文の表示 */
+            #previewContent {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
 
-        /* 6. 印刷用コンテナの余白調整 */
-        .print-preview {
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            /* パディングをゼロにしてブラウザの余白設定に委ねる、あるいは最小限にする */
-            border: none !important;
-            box-shadow: none !important;
-            min-height: 0 !important;
-            /* style.cssのmin-heightを打ち消し */
-        }
+            /* 6. 印刷用コンテナの余白調整 */
+            .print-preview {
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                /* パディングをゼロにしてブラウザの余白設定に委ねる、あるいは最小限にする */
+                border: none !important;
+                box-shadow: none !important;
+                min-height: 0 !important;
+                /* style.cssのmin-heightを打ち消し */
+            }
 
-        /* 不要なUI非表示 */
-        .modal-header,
-        .modal-footer,
-        .modal-close {
-            display: none !important;
-        }
+            /* 不要なUI非表示 */
+            .modal-header,
+            .modal-footer,
+            .modal-close {
+                display: none !important;
+            }
 
-        /* フォント調整 */
-        body {
-            font-size: 10pt;
-            /* 少し小さくして収まりを良くする */
-        }
+            /* フォント調整 */
+            body {
+                font-size: 10pt;
+                /* 少し小さくして収まりを良くする */
+            }
 
-        /* 改ページ制御 */
-        .print-preview {
-            page-break-inside: auto;
-        }
+            /* 改ページ制御 */
+            .print-preview {
+                page-break-inside: auto;
+            }
 
-        table {
-            page-break-inside: auto;
-            margin-bottom: 20px;
-        }
+            table {
+                page-break-inside: auto;
+                margin-bottom: 20px;
+            }
 
-        tr {
-            page-break-inside: avoid;
-            page-break-after: auto;
-        }
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
 
-        thead {
-            display: table-header-group;
-        }
+            thead {
+                display: table-header-group;
+            }
 
-        tfoot {
-            display: table-footer-group;
-        }
+            tfoot {
+                display: table-footer-group;
+            }
 
-        /* 空白ページ対策 */
-        * {
-            float: none !important;
-        }
+            /* 空白ページ対策 */
+            * {
+                float: none !important;
+            }
         }
     </style>
 </head>
