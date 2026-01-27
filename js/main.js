@@ -767,11 +767,25 @@ function generatePreviewHtml() {
         ageLabel = { ecocar: 'エコカー', over13: '13年超', over18: '18年超' }[va] || '標準';
     }
 
-    const maint = parseCurrency(document.getElementById('maintenanceTotal').textContent);
-    const legal = parseCurrency(document.getElementById('legalTotal').textContent);
-    const grand = document.getElementById('grandTotal').textContent;
-    const reserve = parseCurrency(document.getElementById('reserveFeeInput').value);
-    const agency = parseCurrency(document.getElementById('agencyFeeInput').value);
+    let maintString = document.getElementById('maintenanceSubtotal').textContent;
+    let legalString = document.getElementById('legalFeesSubtotal').textContent;
+    let grandString = document.getElementById('grandTotal').textContent;
+
+    // エラーハンドリング: 要素が見つからない場合
+    if (!maintString) maintString = '0';
+    if (!legalString) legalString = '0';
+    if (!grandString) grandString = '0';
+
+    const maint = parseCurrency(maintString);
+    const legal = parseCurrency(legalString);
+    const grand = parseCurrency(grandString); // 数値として取得するように修正
+
+    const reserveInput = document.getElementById('reservationFee'); // ID修正
+    const agencyInput = document.getElementById('agencyFee'); // ID修正
+
+    const reserve = reserveInput ? parseInt(reserveInput.value) || 0 : 0;
+    const agency = agencyInput ? parseInt(agencyInput.value) || 0 : 0;
+
     const notes = document.getElementById('notes').value;
 
     const maintenanceItems = getAllMaintenanceItems();
@@ -792,7 +806,7 @@ function generatePreviewHtml() {
     html += `
     <div class="print-page">
         <div class="header-section">
-            <div class="company-info" style="text-align: right; width: 100%;">
+            <div class="company-info" style="text-align: right; margin-left: auto;">
                 ${logoHtml}<br>
                 <div style="font-size: 1.2em; font-weight: bold;">${escapeHtml(companyName)}</div>
                 <div style="font-size: 0.9em;">${escapeHtml(companyAddress)}</div>
@@ -2833,5 +2847,51 @@ function convertJapaneseDate(dateStr) {
 
     return null;
 }
+
+// ==========================================
+// プレビュー用ヘルパー関数
+// ==========================================
+
+// 通貨文字列を数値に変換（例: "¥1,000" -> 1000）
+if (typeof parseCurrency !== 'function') {
+    window.parseCurrency = function (str) {
+        if (!str) return 0;
+        // 既に数値の場合
+        if (typeof str === 'number') return str;
+        return parseInt(str.toString().replace(/[^\d]/g, '')) || 0;
+    };
+}
+
+function getAllMaintenanceItems() {
+    return maintenanceItems || [];
+}
+
+function getCurrentEstimateData() {
+    return {
+        companyName: document.getElementById('companyName')?.value || '',
+        companyTel: document.getElementById('companyTel')?.value || '',
+        companyAddress: document.getElementById('companyAddress')?.value || '',
+        userName: document.getElementById('userName')?.value || '',
+        userAddress: document.getElementById('userAddress')?.value || '',
+        userTel: document.getElementById('userTel')?.value || '',
+        ownerName: document.getElementById('ownerName')?.value || '',
+        ownerAddress: document.getElementById('ownerAddress')?.value || '',
+        ownerSameAsUser: document.getElementById('ownerSameAsUser')?.checked || false,
+        plateRegion: document.getElementById('plateRegion')?.value || '',
+        plateClass: document.getElementById('plateClass')?.value || '',
+        plateHiragana: document.getElementById('plateHiragana')?.value || '',
+        plateSerial: document.getElementById('plateSerial')?.value || '',
+        carName: document.getElementById('carName')?.value || '',
+        carModel: document.getElementById('carModel')?.value || '',
+        chassisNumber: document.getElementById('chassisNumber')?.value || '',
+        mileage: document.getElementById('mileage')?.value || '',
+        vehicleWeight: document.getElementById('vehicleWeight')?.value || '',
+        vehicleAge: document.getElementById('vehicleAge')?.value || '',
+        shakenExpiryDate: document.getElementById('shakenExpiryDate')?.value || '',
+        notes: document.getElementById('notes')?.value || '',
+        maintenanceItems: maintenanceItems || []
+    };
+}
+
 
 
