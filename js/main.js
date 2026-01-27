@@ -23,90 +23,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Enterキーで次の入力欄に移動する機能（Shift+Enterで前へ戻る）
 function initializeEnterKeyNavigation() {
-    // 入力順序を定義（ID順）
-    const inputOrder = [
-        // 会社情報
-        'companyName', 'companyTel', 'companyAddress',
-        // 使用者情報
-        'userName', 'userNameKana', 'userAddress', 'userTel', 'userEmail',
-        // 所有者情報
-        'ownerName', 'ownerAddress',
-        // ナンバープレート
-        'plateRegion', 'plateClass', 'plateHiragana', 'plateSerial',
-        // 車両情報
-        'carMaker', 'carNameSelect', 'carModelSelect', 'carModel', 'carName',
-        'chassisNumber', 'firstRegistration', 'mileage',
-        'vehicleWeight', 'vehicleAge', 'factoryType',
-        // 法定費用
-        'reservationFee', 'agencyFee',
-        // 整備項目追加
-        'newItemName', 'newItemQty', 'newItemPrice',
-        // 備考
-        'notes'
-    ];
+    // フォーム内の対象要素をすべて取得するためのセレクタ
+    // input(hidden除く), select, textarea, button(追加・削除ボタンなどは除外したいが、タブ順序には含めるべきか要検討)
+    // ここでは「入力・操作可能な要素」として取得する
+    const selector = 'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button.btn-add-sub:not([disabled]), button.btn-remove:not([disabled])';
 
-    // 有効な入力要素かチェック
-    function isValidElement(id) {
-        const element = document.getElementById(id);
-        if (!element) return false;
+    // キーダウンイベントをdocument全体で監視（動的に追加される要素にも対応するため）
+    document.addEventListener('keydown', (e) => {
+        // Enterキー以外は無視
+        if (e.key !== 'Enter') return;
+        if (e.target.tagName === 'BUTTON' && !e.target.classList.contains('btn-add-sub')) return; // 通常のボタンはEnterでクリック動作させるため除外（追加ボタンなどの小ボタンはナビゲーション対象とする場合）
 
-        // 所有者フィールドがhiddenの場合はスキップ
-        const ownerFields = document.getElementById('ownerFields');
-        if ((id === 'ownerName' || id === 'ownerAddress') &&
-            ownerFields && ownerFields.style.display === 'none') {
-            return false;
+        // 変換中は無視
+        if (e.isComposing) return;
+
+        const target = e.target;
+
+        // 対象外の要素なら無視
+        if (!target.matches(selector)) return;
+
+        // デフォルトの動作（送信など）をキャンセル
+        e.preventDefault();
+
+        // 特例：新規項目の「工賃」欄でEnterが押された場合 -> 項目を追加
+        if (target.id === 'newItemWage' && !e.shiftKey) {
+            addMaintenanceItem();
+            // フォーカスを項目名に戻す（DOM再構築後にフォーカスするためsetTimeout）
+            setTimeout(() => {
+                const nameInput = document.getElementById('newItemName');
+                if (nameInput) nameInput.focus();
+            }, 10);
+            return;
         }
 
-        // 要素が表示されていて有効な場合のみ
-        return element.offsetParent !== null && !element.disabled;
-    }
+        // 現在のDOM上の全対象要素を取得して、順序を特定
+        const elements = Array.from(document.querySelectorAll(selector))
+            .filter(el => el.offsetParent !== null); // 表示されている要素のみ
 
-    // すべての入力要素にイベントリスナーを追加
-    inputOrder.forEach((id, index) => {
-        const element = document.getElementById(id);
-        if (!element) return;
+        const index = elements.indexOf(target);
 
-        element.addEventListener('keydown', (e) => {
-            // Enterキーが押された場合
-            if (e.key === 'Enter') {
-                e.preventDefault();
-
-                // textareaの場合は改行を許可（Ctrl+Enterで次へ）
-                if (element.tagName === 'TEXTAREA' && !e.ctrlKey && !e.shiftKey) {
-                    return;
-                }
-
-                // Shift+Enter: 前の入力要素へ戻る
-                if (e.shiftKey) {
-                    for (let i = index - 1; i >= 0; i--) {
-                        if (isValidElement(inputOrder[i])) {
-                            const prevElement = document.getElementById(inputOrder[i]);
-                            prevElement.focus();
-                            if (prevElement.tagName === 'SELECT') {
-                                prevElement.click();
-                            }
-                            break;
-                        }
+        if (index > -1) {
+            if (e.shiftKey) {
+                // 前へ
+                const prev = elements[index - 1];
+                if (prev) {
+                    prev.focus();
+                    if (prev.tagName === 'SELECT') {
+                        // selectはこの挙動だと開かないことが多いが、フォーカス移動を優先
                     }
                 }
-                // Enter: 次の入力要素へ進む
-                else {
-                    for (let i = index + 1; i < inputOrder.length; i++) {
-                        if (isValidElement(inputOrder[i])) {
-                            const nextElement = document.getElementById(inputOrder[i]);
-                            nextElement.focus();
-                            if (nextElement.tagName === 'SELECT') {
-                                nextElement.click();
-                            }
-                            break;
-                        }
+            } else {
+                // 次へ
+                const next = elements[index + 1];
+                if (next) {
+                    next.focus();
+                    if (next.tagName === 'SELECT') {
+                        // next.click(); // 必要であれば
                     }
                 }
             }
-        });
+        }
     });
 
-    console.log('Enterキーナビゲーションを初期化しました（Enter=次へ, Shift+Enter=前へ）');
+    console.log('Enterキーナビゲーションを初期化しました（動的対応版）');
 }
 
 // データ読み込み
@@ -651,23 +630,8 @@ function updateItemTotal(item, shouldRender = true) {
     }
 }
 
-// Enterキーでの追加機能のセットアップ
-document.addEventListener('DOMContentLoaded', () => {
-    const inputs = ['newItemName', 'newItemQty', 'newItemParts', 'newItemFluid', 'newItemWage'];
-    inputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' && !e.isComposing) {
-                    e.preventDefault();
-                    addMaintenanceItem();
-                    // フォーカスを項目名に戻す
-                    document.getElementById('newItemName').focus();
-                }
-            });
-        }
-    });
-});
+// Enterキーでの追加機能のセットアップ (initializeEnterKeyNavigationに統合されたため削除)
+// document.addEventListener('DOMContentLoaded', () => { ... });
 
 
 function removeItem(id) {
