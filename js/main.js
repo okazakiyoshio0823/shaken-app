@@ -137,6 +137,8 @@ function saveCustomerData() {
         carName: document.getElementById('carName').value,
         carModel: document.getElementById('carModel').value,
         chassisNumber: document.getElementById('chassisNumber').value,
+        typeDesignationNumber: document.getElementById('typeDesignationNumber').value,
+        categoryClassificationNumber: document.getElementById('categoryClassificationNumber').value,
         firstRegistration: document.getElementById('firstRegistration').value,
         mileage: document.getElementById('mileage').value,
         vehicleWeight: document.getElementById('vehicleWeight').value,
@@ -228,6 +230,8 @@ function loadCustomerData(id) {
     document.getElementById('carName').value = c.carName || '';
     document.getElementById('carModel').value = c.carModel || '';
     document.getElementById('chassisNumber').value = c.chassisNumber || '';
+    document.getElementById('typeDesignationNumber').value = c.typeDesignationNumber || '';
+    document.getElementById('categoryClassificationNumber').value = c.categoryClassificationNumber || '';
     document.getElementById('firstRegistration').value = c.firstRegistration || '';
     document.getElementById('mileage').value = c.mileage || '';
     document.getElementById('vehicleWeight').value = c.vehicleWeight || '';
@@ -678,7 +682,7 @@ function clearForm() {
         'userName', 'userNameKana', 'userAddress', 'userTel', 'userEmail',
         'ownerName', 'ownerAddress',
         'plateRegion', 'plateClass', 'plateHiragana', 'plateSerial',
-        'carMaker', 'carName', 'carModel', 'chassisNumber', 'firstRegistration',
+        'carMaker', 'carName', 'carModel', 'chassisNumber', 'typeDesignationNumber', 'categoryClassificationNumber', 'firstRegistration',
         'shakenExpiryDate', 'mileage', 'notes', 'customerMemo',
         'reservationFee', 'agencyFee', 'newItemName', 'newItemQty', 'newItemPrice'
     ];
@@ -835,7 +839,100 @@ function generatePreviewHtml() {
                     <div><span style="display:inline-block; width:70px;">登録番号:</span> <strong>${escapeHtml(plate)}</strong></div>
                     <div><span style="display:inline-block; width:70px;">型式:</span> ${escapeHtml(carModel)}</div>
                     <div><span style="display:inline-block; width:70px;">車台番号:</span> ${escapeHtml(chassisNumber)}</div>
+                    <div><span style="display:inline-block; width:110px;">型式指定番号:</span> ${escapeHtml(document.getElementById('typeDesignationNumber').value || '-')}</div>
+                    <div><span style="display:inline-block; width:110px;">類別区分番号:</span> ${escapeHtml(document.getElementById('categoryClassificationNumber').value || '-')}</div>
                     <div><span style="display:inline-block; width:70px;">走行距離:</span> ${mileage ? mileage + ' km' : '-'}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dates Section -->
+        ${(() => {
+            const expDate = new Date();
+            expDate.setMonth(expDate.getMonth() + 1);
+            const expDateStr = `${expDate.getFullYear()}年${expDate.getMonth() + 1}月${expDate.getDate()}日`;
+
+            const sknDateVal = document.getElementById('shakenExpiryDate').value;
+            let sknDateStr = '未登録';
+            if (sknDateVal) {
+                const d = new Date(sknDateVal);
+                sknDateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+            }
+            return `
+            <div style="display:flex; justify-content:space-around; align-items:center; margin-top:15px; border:2px solid #555; padding:8px; background-color:#fff;">
+                <div style="font-size:1.1em;"><strong>お見積り有効期限：</strong> ${expDateStr}</div>
+                <div style="font-size:1.2em;"><strong>車検満了日：</strong> <span style="font-weight:bold; color:#c0392b;">${sknDateStr}</span></div>
+            </div>`;
+        })()}
+
+        <!-- Diagram & Memo Section -->
+        <div style="display:flex; gap:15px; margin-top:15px; height: 300px; margin-bottom: 30px;">
+            <!-- Vehicle Diagram -->
+            <div style="flex:1; border:1px solid #ccc; border-radius:4px; padding:5px; display:flex; flex-direction:column;">
+                <h4 style="margin:0 0 5px 0; border-bottom:1px solid #eee; font-size:0.9em; text-align:center;">車両状態チェック (傷・凹み等)</h4>
+                <div style="flex:1; display:flex; align-items:center; justify-content:center; position:relative;">
+                    <!-- Improved Car Diagram SVG -->
+                    <svg width="100%" height="100%" viewBox="0 0 400 280" style="opacity:0.7;">
+                        <style>
+                            .car-line { fill: none; stroke: #555; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+                            .car-text { font-size: 10px; fill: #999; text-anchor: middle; font-family: sans-serif; }
+                        </style>
+                        
+                        <!-- Layout: Center=Top, Left=Left, Right=Right, Bottom=Front/Rear -->
+                        
+                        <!-- Top View (Center) -->
+                        <g transform="translate(150, 20)">
+                            <!-- Hood -->
+                            <path class="car-line" d="M20,10 Q50,5 80,10 L85,40 L15,40 Z" />
+                            <!-- Cabin/Roof -->
+                            <path class="car-line" d="M15,40 L10,120 L90,120 L85,40" />
+                            <rect class="car-line" x="20" y="50" width="60" height="60" rx="5" />
+                            <!-- Trunk -->
+                            <path class="car-line" d="M10,120 L15,150 Q50,155 85,150 L90,120 Z" />
+                            <text class="car-text" x="50" y="85">上面</text>
+                        </g>
+
+                        <!-- Left Side View (Left) -->
+                        <g transform="translate(10, 80)">
+                            <!-- Body Outline -->
+                             <path class="car-line" d="M5,40 Q5,30 20,25 L40,10 L90,10 L110,25 Q130,25 130,40 L130,50 L120,50 Q110,50 110,60 Q110,70 120,70 L125,70 L125,50 L5,50 L5,40" />
+                             <!-- Wheels -->
+                             <circle class="car-line" cx="35" cy="65" r="10" />
+                             <circle class="car-line" cx="105" cy="65" r="10" />
+                             <!-- Windows -->
+                             <path class="car-line" d="M45,15 L85,15 L85,25 L105,25 L90,15" fill="none" /> 
+                             <text class="car-text" x="70" y="45">左側面</text>
+                        </g>
+
+                         <!-- Right Side View (Right) -->
+                        <g transform="translate(260, 80)">
+                             <!-- Body Outline (Mirrored) -->
+                             <path class="car-line" d="M135,40 Q135,30 120,25 L100,10 L50,10 L30,25 Q10,25 10,40 L10,50 L20,50 Q30,50 30,60 Q30,70 20,70 L15,70 L15,50 L135,50 L135,40" />
+                             <!-- Wheels -->
+                             <circle class="car-line" cx="105" cy="65" r="10" />
+                             <circle class="car-line" cx="35" cy="65" r="10" />
+                             <text class="car-text" x="70" y="45">右側面</text>
+                        </g>
+                        
+                        <!-- Front/Rear View (Bottom) -->
+                        <g transform="translate(150, 180)">
+                            <!-- Front -->
+                            <rect class="car-line" x="10" y="0" width="80" height="40" rx="10" />
+                            <line class="car-line" x1="10" y1="20" x2="90" y2="20" />
+                            <circle class="car-line" cx="20" cy="20" r="5" />
+                            <circle class="car-line" cx="80" cy="20" r="5" />
+                            <text class="car-text" x="50" y="55">正面 / 背面</text>
+                        </g>
+                    </svg>
+                    <div style="position:absolute; bottom:5px; right:5px; font-size:0.7em; color:#999;">※該当箇所に印をつけてください</div>
+                </div>
+            </div>
+
+            <!-- Memo Field -->
+             <div style="flex:1; border:1px solid #ccc; border-radius:4px; padding:5px; display:flex; flex-direction:column;">
+                <h4 style="margin:0 0 5px 0; border-bottom:1px solid #eee; font-size:0.9em; text-align:center;">整備メモ / 連絡事項</h4>
+                <div style="flex:1; position:relative; background-image: repeating-linear-gradient(transparent, transparent 39px, #eee 40px); background-size: 100% 40px;">
+                    <!-- Ruled lines background -->
                 </div>
             </div>
         </div>
@@ -1072,6 +1169,8 @@ function generatePreviewHtml() {
                 <div class="preview-info-item"><span class="label">車名</span><span class="value">${escapeHtml(carName)}</span></div>
                 <div class="preview-info-item"><span class="label">型式</span><span class="value">${escapeHtml(carModel)}</span></div>
                 <div class="preview-info-item"><span class="label">車台番号</span><span class="value">${escapeHtml(chassisNumber)}</span></div>
+                <div class="preview-info-item"><span class="label">型式指定</span><span class="value">${escapeHtml(document.getElementById('typeDesignationNumber').value || '-')}</span></div>
+                <div class="preview-info-item"><span class="label">類別区分</span><span class="value">${escapeHtml(document.getElementById('categoryClassificationNumber').value || '-')}</span></div>
                 <div class="preview-info-item"><span class="label">走行距離</span><span class="value">${mileage ? mileage + ' km' : '-'}</span></div>
                 <div class="preview-info-item"><span class="label">経過年数</span><span class="value">${ageLabel}</span></div>
             </div>
@@ -2032,6 +2131,8 @@ function getCurrentEstimateData() {
         carName: document.getElementById('carName').value,
         carModel: document.getElementById('carModel').value,
         chassisNumber: document.getElementById('chassisNumber').value,
+        typeDesignationNumber: document.getElementById('typeDesignationNumber').value,
+        categoryClassificationNumber: document.getElementById('categoryClassificationNumber').value,
         firstRegistration: document.getElementById('firstRegistration').value,
         mileage: document.getElementById('mileage').value,
         vehicleWeight: document.getElementById('vehicleWeight').value,
@@ -2171,6 +2272,8 @@ function loadEstimateFromHistory(id) {
     document.getElementById('carName').value = d.carName || '';
     document.getElementById('carModel').value = d.carModel || '';
     document.getElementById('chassisNumber').value = d.chassisNumber || '';
+    document.getElementById('typeDesignationNumber').value = d.typeDesignationNumber || '';
+    document.getElementById('categoryClassificationNumber').value = d.categoryClassificationNumber || '';
     document.getElementById('firstRegistration').value = d.firstRegistration || '';
     document.getElementById('mileage').value = d.mileage || '';
     document.getElementById('vehicleWeight').value = d.vehicleWeight || '';
@@ -2884,6 +2987,8 @@ function getCurrentEstimateData() {
         carName: document.getElementById('carName')?.value || '',
         carModel: document.getElementById('carModel')?.value || '',
         chassisNumber: document.getElementById('chassisNumber')?.value || '',
+        typeDesignationNumber: document.getElementById('typeDesignationNumber')?.value || '',
+        categoryClassificationNumber: document.getElementById('categoryClassificationNumber')?.value || '',
         mileage: document.getElementById('mileage')?.value || '',
         vehicleWeight: document.getElementById('vehicleWeight')?.value || '',
         vehicleAge: document.getElementById('vehicleAge')?.value || '',
