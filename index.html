@@ -360,10 +360,29 @@
 </head>
 
 <body>
+    <!-- 認証チェック -->
+    <script>
+        // ページ読み込み時に認証トークンをチェック
+        (function () {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                // トークンがない場合はログイン画面にリダイレクト
+                window.location.href = 'login.html';
+            }
+        })();
+    </script>
+
     <div class="app-container">
-        <header class="app-header">
-            <h1>🔧 Mechaniq - メカニーク</h1>
-            <p>車検見積をスマートに作成</p>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h1>🔧 Mechaniq - メカニーク</h1>
+                <p>車検見積をスマートに作成</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-sm btn-outline" style="color:white; border-color:white;"
+                    onclick="window.shakenApi.logout()">🚪 ログアウト</button>
+            </div>
+        </div>
         </header>
 
         <div class="toolbar">
@@ -810,6 +829,18 @@
                     <textarea class="form-control" id="customerMemo" rows="2"
                         placeholder="お客様の好み、次回の提案事項など..."></textarea>
                 </div>
+
+                <!-- 写真添付 (サーバー機能) -->
+                <div class="form-group" style="margin-top:15px;border-top:1px dashed #eee;padding-top:15px;">
+                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">📷 車両・部品の写真添付 (サーバー機能)</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="file" id="vehiclePhotoUpload" accept="image/*" class="form-control"
+                            style="width: auto;">
+                        <button type="button" class="btn btn-secondary" onclick="uploadSelectedPhoto()">アップロード</button>
+                    </div>
+                    <div id="uploadedPhotosList" style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1087,9 +1118,12 @@
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="js/data.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
     <script src="js/cardb.js"></script>
     <script src="js/main.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="js/upload_client.js"></script>
     <script src="js/pdf.js"></script>
 </body>
 
