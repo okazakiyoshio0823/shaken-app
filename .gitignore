@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment
+.env
+
+# Database
+*.sqlite
+*.db
+database.sqlite
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log
+server_log.txt
+npm-debug.log*
+
+# Test files
+test_*.js
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Misc
+サーバーログの見方.md
+
+# Local only files
+_local_only/
