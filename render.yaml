@@ -16,6 +16,10 @@ services:
         generateValue: true
       - key: EMAIL_FROM
         value: noreply@example.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shaken-db
+          property: connectionString
     autoDeploy: true
 
 databases:
@@ -25,12 +29,3 @@ databases:
     plan: free
     databaseName: shaken
     user: shaken_user
-
-# データベース接続情報の自動注入
-envVarGroups:
-  - name: db-connection
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: shaken-db
-          property: connectionString
