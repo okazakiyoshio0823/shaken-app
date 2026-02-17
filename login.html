@@ -112,7 +112,7 @@
         // API Base URL setting
         // file:// プロトコル（デスクトップで直接開いた場合）や localhost の場合はローカルサーバーを指す
         const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const API_BASE_URL = isLocal ? 'http://localhost:5000/api' : '/api';
+        const API_BASE_URL = isLocal ? 'http://localhost:5000/api' : 'https://shaken-app-server.onrender.com/api';
 
         // LIFF IDを設定してください (LINE Developersで取得)
         const MY_LIFF_ID = "YOUR_LIFF_ID_HERE";
