@@ -172,6 +172,9 @@ async function saveCustomerData() {
         plateClass: document.getElementById('plateClass').value,
         plateHiragana: document.getElementById('plateHiragana').value,
         plateSerial: document.getElementById('plateSerial').value,
+        carMaker: document.getElementById('carMaker').value,
+        carNameSelect: document.getElementById('carNameSelect')?.value || '',
+        carModelSelect: document.getElementById('carModelSelect')?.value || '',
         carName: document.getElementById('carName').value,
         carModel: document.getElementById('carModel').value,
         chassisNumber: document.getElementById('chassisNumber').value,
@@ -283,6 +286,31 @@ async function loadCustomerData(id) {
     document.getElementById('plateClass').value = c.plateClass || '';
     document.getElementById('plateHiragana').value = c.plateHiragana || '';
     document.getElementById('plateSerial').value = c.plateSerial || '';
+
+    // メーカー・車名・型式のセレクトボックスを連動復元
+    if (c.carMaker) {
+        document.getElementById('carMaker').value = c.carMaker;
+        if (typeof onMakerChange === 'function') {
+            onMakerChange();
+            setTimeout(() => {
+                if (c.carNameSelect) {
+                    const carNameSel = document.getElementById('carNameSelect');
+                    if (carNameSel) carNameSel.value = c.carNameSelect;
+                    if (typeof onCarNameChange === 'function') {
+                        onCarNameChange();
+                        setTimeout(() => {
+                            if (c.carModelSelect) {
+                                const carModelSel = document.getElementById('carModelSelect');
+                                if (carModelSel) carModelSel.value = c.carModelSelect;
+                                if (typeof onModelChange === 'function') onModelChange();
+                            }
+                        }, 100);
+                    }
+                }
+            }, 100);
+        }
+    }
+
     document.getElementById('carName').value = c.carName || '';
     document.getElementById('carModel').value = c.carModel || '';
     document.getElementById('chassisNumber').value = c.chassisNumber || '';
@@ -883,7 +911,7 @@ function generatePreviewHtml() {
 
     // 経過年数の計算
     let ageLabel = '-';
-    const firstRegElement = document.getElementById('firstRegistrationDate');
+    const firstRegElement = document.getElementById('firstRegistration');
     const firstReg = firstRegElement ? firstRegElement.value : '';
 
     if (firstReg) {
@@ -2256,6 +2284,8 @@ function getCurrentEstimateData() {
         plateHiragana: document.getElementById('plateHiragana').value,
         plateSerial: document.getElementById('plateSerial').value,
         carMaker: document.getElementById('carMaker').value,
+        carNameSelect: document.getElementById('carNameSelect')?.value || '',
+        carModelSelect: document.getElementById('carModelSelect')?.value || '',
         carName: document.getElementById('carName').value,
         carModel: document.getElementById('carModel').value,
         chassisNumber: document.getElementById('chassisNumber').value,
@@ -2396,7 +2426,34 @@ function loadEstimateFromHistory(id) {
     document.getElementById('plateClass').value = d.plateClass || '';
     document.getElementById('plateHiragana').value = d.plateHiragana || '';
     document.getElementById('plateSerial').value = d.plateSerial || '';
-    document.getElementById('carMaker').value = d.carMaker || '';
+
+    // メーカー・車名・型式のセレクトボックスを連動復元
+    if (d.carMaker) {
+        document.getElementById('carMaker').value = d.carMaker;
+        // メーカー変更時のカスケードを手動実行
+        if (typeof onMakerChange === 'function') {
+            onMakerChange();
+            // セレクトボックスの再構築後に値を復元するため少し待つ
+            setTimeout(() => {
+                if (d.carNameSelect) {
+                    const carNameSel = document.getElementById('carNameSelect');
+                    if (carNameSel) carNameSel.value = d.carNameSelect;
+                    if (typeof onCarNameChange === 'function') {
+                        onCarNameChange();
+                        setTimeout(() => {
+                            if (d.carModelSelect) {
+                                const carModelSel = document.getElementById('carModelSelect');
+                                if (carModelSel) carModelSel.value = d.carModelSelect;
+                                if (typeof onModelChange === 'function') onModelChange();
+                            }
+                        }, 100);
+                    }
+                }
+            }, 100);
+        }
+    }
+
+    // 表示用のテキストフィールドは直接復元
     document.getElementById('carName').value = d.carName || '';
     document.getElementById('carModel').value = d.carModel || '';
     document.getElementById('chassisNumber').value = d.chassisNumber || '';
@@ -2430,10 +2487,15 @@ function loadEstimateFromHistory(id) {
     // 書類種別
     document.getElementById('documentType').value = d.documentType || 'estimate';
 
+    // 和暦入力フィールドの同期
+    if (d.firstRegistration && typeof syncSeirekiToWareki === 'function') {
+        syncSeirekiToWareki('firstRegistration');
+    }
+
     // 表示更新
     if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
     updateLegalFees();
-    calculateShakenExpiry();
+    if (typeof calculateShakenExpiry === 'function') calculateShakenExpiry();
     calculateTotals();
     closeEstimateHistoryModal();
     alert('✅ 見積を読み込みました');
@@ -3097,34 +3159,6 @@ function getAllMaintenanceItems() {
     return maintenanceItems || [];
 }
 
-function getCurrentEstimateData() {
-    return {
-        companyName: document.getElementById('companyName')?.value || '',
-        companyTel: document.getElementById('companyTel')?.value || '',
-        companyAddress: document.getElementById('companyAddress')?.value || '',
-        userName: document.getElementById('userName')?.value || '',
-        userAddress: document.getElementById('userAddress')?.value || '',
-        userTel: document.getElementById('userTel')?.value || '',
-        ownerName: document.getElementById('ownerName')?.value || '',
-        ownerAddress: document.getElementById('ownerAddress')?.value || '',
-        ownerSameAsUser: document.getElementById('ownerSameAsUser')?.checked || false,
-        plateRegion: document.getElementById('plateRegion')?.value || '',
-        plateClass: document.getElementById('plateClass')?.value || '',
-        plateHiragana: document.getElementById('plateHiragana')?.value || '',
-        plateSerial: document.getElementById('plateSerial')?.value || '',
-        carName: document.getElementById('carName')?.value || '',
-        carModel: document.getElementById('carModel')?.value || '',
-        chassisNumber: document.getElementById('chassisNumber')?.value || '',
-        typeDesignationNumber: document.getElementById('typeDesignationNumber')?.value || '',
-        categoryClassificationNumber: document.getElementById('categoryClassificationNumber')?.value || '',
-        mileage: document.getElementById('mileage')?.value || '',
-        vehicleWeight: document.getElementById('vehicleWeight')?.value || '',
-        vehicleAge: document.getElementById('vehicleAge')?.value || '',
-        shakenExpiryDate: document.getElementById('shakenExpiryDate')?.value || '',
-        notes: document.getElementById('notes')?.value || '',
-        maintenanceItems: maintenanceItems || []
-    };
-}
-
-
+// getCurrentEstimateData() は line 2238 に完全版が定義されているため、
+// ここでの重複定義を削除しました。
 
