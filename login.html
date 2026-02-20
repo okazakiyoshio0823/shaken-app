@@ -159,6 +159,18 @@
             }
         });
 
+        // ログアウト完了メッセージの表示
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('logout') === 'true') {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = 'ログアウトしました。';
+            errorMsg.style.display = 'block';
+            errorMsg.style.color = 'green';
+            errorMsg.style.border = '1px solid green';
+            errorMsg.style.padding = '10px';
+            errorMsg.style.background = '#e8f5e9';
+        }
+
         // 簡易登録機能（開発用）
         async function registerAdmin() {
             if (!confirm('ユーザー "admin" / パスワード "admin" を作成しますか？')) return;

@@ -1,10 +1,11 @@
 // API Base URL setting
 // GitHub Pages検出、またはURLパラメータで ?demo=true がある場合
 const urlParams = new URLSearchParams(window.location.search);
-const isDemoMode = window.location.hostname.includes('github.io') || urlParams.get('demo') === 'true';
+// デモモードはURLパラメータで明示された場合のみ有効にする（GitHub Pagesでも本番につなぐため）
+const isDemoMode = urlParams.get('demo') === 'true';
 const isLocal = typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-// デモモード（GitHub Pages または ?demo=true）の場合はダミーAPIを使用
+// デモモード（?demo=true）の場合はダミーAPIを使用
 if (isDemoMode) {
     console.log('🚀 Running in Mock API Mode (Demo)');
 
@@ -64,12 +65,12 @@ if (isDemoMode) {
     };
 }
 
-// 本番APIのURL（Renderデプロイ後に書き換えるか、自動判定する）
-// GitHub Pagesで開いていて、かつデモモードでない場合 → Renderのサーバーにつなぐ
-const RENDER_BACKEND_URL = 'https://YOUR-APP-NAME.onrender.com/api'; // ⚠️ ここを書き換える！
+// 本番APIのURL（Renderデプロイ済みのURL）
+const RENDER_BACKEND_URL = 'https://shaken-app-server.onrender.com/api';
 
 let baseUrl = isLocal ? 'http://localhost:5000/api' : '/api';
-if (isGitHubPages && !isDemoMode) {
+// GitHub Pagesなどのホスティング環境ではRenderのバックエンドを使用
+if (window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel.app')) {
     baseUrl = RENDER_BACKEND_URL;
 }
 
@@ -199,8 +200,12 @@ const api = {
     // ログアウト
     logout() {
         if (confirm('ログアウトしますか？')) {
-            try { localStorage.removeItem('authToken'); } catch (e) { }
-            window.location.href = 'login.html';
+            try {
+                localStorage.removeItem('authToken');
+                sessionStorage.clear();
+            } catch (e) { }
+            // 履歴に残らないように置換し、キャッシュ回避パラメータを付与
+            window.location.replace('login.html?logout=true&t=' + new Date().getTime());
         }
     },
 
