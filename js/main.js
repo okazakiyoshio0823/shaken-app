@@ -429,8 +429,9 @@ function updateLegalFees() {
     const age = document.getElementById('vehicleAge').value;
     const factory = document.getElementById('factoryType').value;
     const oss = document.getElementById('useOSS').checked;
+    const shakenType = document.getElementById('shakenType').value;
 
-    if (!weight) {
+    if (shakenType === 'none' || !weight) {
         currentLegalFees = { weightTax: 0, jibaiseki: 0, stamp: 0 };
     } else {
         const isKei = weight === 'kei';
@@ -439,10 +440,35 @@ function updateLegalFees() {
         currentLegalFees.jibaiseki = isKei ? LEGAL_FEES.jibaiseki.kei : LEGAL_FEES.jibaiseki.normal;
         currentLegalFees.stamp = calculateStampFee(isKei, factory, oss);
     }
-    document.getElementById('weightTaxDisplay').textContent = `¥${currentLegalFees.weightTax.toLocaleString()}`;
-    document.getElementById('jibaisekiDisplay').textContent = `¥${currentLegalFees.jibaiseki.toLocaleString()}`;
-    document.getElementById('stampDisplay').textContent = `¥${currentLegalFees.stamp.toLocaleString()}`;
+
+    const wtInput = document.getElementById('weightTaxInput');
+    const jbInput = document.getElementById('jibaisekiInput');
+    const stInput = document.getElementById('stampInput');
+
+    if (wtInput) wtInput.value = currentLegalFees.weightTax;
+    if (jbInput) jbInput.value = currentLegalFees.jibaiseki;
+    if (stInput) stInput.value = currentLegalFees.stamp;
+
     calculateTotals();
+}
+
+function onManualLegalFeeChange() {
+    const wtInput = document.getElementById('weightTaxInput');
+    const jbInput = document.getElementById('jibaisekiInput');
+    const stInput = document.getElementById('stampInput');
+
+    currentLegalFees.weightTax = parseInt(wtInput ? wtInput.value : 0) || 0;
+    currentLegalFees.jibaiseki = parseInt(jbInput ? jbInput.value : 0) || 0;
+    currentLegalFees.stamp = parseInt(stInput ? stInput.value : 0) || 0;
+
+    calculateTotals();
+}
+
+function updateShakenType() {
+    if (typeof updateShakenExpiryDisplay === 'function') {
+        updateShakenExpiryDisplay();
+    }
+    updateLegalFees();
 }
 
 // 整備項目
@@ -869,6 +895,8 @@ function clearForm() {
     // 写真リストのクリア
     window.currentUploadedPhotos = [];
     if (window.renderUploadedPhotos) window.renderUploadedPhotos();
+
+    updateLegalFees();
 }
 
 // プレビュー
@@ -1946,6 +1974,13 @@ function updateShakenExpiryDisplay() {
     const shakenExpiryDate = document.getElementById('shakenExpiryDate').value;
     const shakenType = document.getElementById('shakenType').value;
     const displayEl = document.getElementById('shakenExpiryDisplay');
+
+    if (shakenType === 'none') {
+        displayEl.innerHTML = '一般整備のため車検はありません';
+        displayEl.style.background = 'linear-gradient(135deg,#f5f5f5,#e0e0e0)';
+        displayEl.style.color = '#555';
+        return;
+    }
 
     if (!shakenExpiryDate) {
         displayEl.innerHTML = '車検満了日を入力してください';

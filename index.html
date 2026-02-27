@@ -631,7 +631,8 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>車検区分</label>
-                        <select class="form-control" id="shakenType" onchange="updateShakenExpiryDisplay()">
+                        <select class="form-control" id="shakenType" onchange="updateShakenType()">
+                            <option value="none">車検なし（一般整備）</option>
                             <option value="new">新車（初回3年）</option>
                             <option value="continue" selected>継続車検（2年）</option>
                         </select>
@@ -805,15 +806,24 @@
                 <table class="legal-table">
                     <tr>
                         <td>自動車重量税（1年）</td>
-                        <td class="text-right" id="weightTaxDisplay">¥0</td>
+                        <td class="text-right">
+                            <input type="number" class="form-control fee-input" id="weightTaxInput" value="0"
+                                onchange="onManualLegalFeeChange()">
+                        </td>
                     </tr>
                     <tr>
                         <td>自賠責保険料（24ヶ月）</td>
-                        <td class="text-right" id="jibaisekiDisplay">¥0</td>
+                        <td class="text-right">
+                            <input type="number" class="form-control fee-input" id="jibaisekiInput" value="0"
+                                onchange="onManualLegalFeeChange()">
+                        </td>
                     </tr>
                     <tr>
                         <td>印紙代</td>
-                        <td class="text-right" id="stampDisplay">¥0</td>
+                        <td class="text-right">
+                            <input type="number" class="form-control fee-input" id="stampInput" value="0"
+                                onchange="onManualLegalFeeChange()">
+                        </td>
                     </tr>
                     <tr>
                         <td>検査予約手数料</td>
