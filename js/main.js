@@ -1005,8 +1005,8 @@ function generatePreviewHtml() {
         <div class="page-title">御 見 積 書</div>
         <div style="text-align: right; margin-bottom: 20px;">発行日: ${dateStr}</div>
 
-        <div class="customer-vehicle-grid">
-            <div class="info-box">
+        <div style="margin-top: 20px;">
+            <div class="info-box" style="width: 48%; display: inline-block; vertical-align: top; margin-right: 2%;">
                 <h3>👤 お客様情報</h3>
                 <div style="line-height: 1.8;">
                     <div><span style="display:inline-block; width:70px;">お名前:</span> <strong>${escapeHtml(userName)}</strong> 様</div>
@@ -1016,7 +1016,7 @@ function generatePreviewHtml() {
                 </div>
             </div>
             
-            <div class="info-box">
+            <div class="info-box" style="width: 48%; display: inline-block; vertical-align: top;">
                 <h3>🚙 車両情報</h3>
                 <div style="line-height: 1.8;">
                     <div><span style="display:inline-block; width:70px;">車名:</span> ${escapeHtml(carName)}</div>
@@ -1050,13 +1050,13 @@ function generatePreviewHtml() {
         })()}
 
         <!-- Diagram & Memo Section -->
-        <div style="display:flex; gap:15px; margin-top:15px; height: 300px; margin-bottom: 30px;">
+        <div style="margin-top:15px; height: 300px; margin-bottom: 30px;">
             <!-- Vehicle Diagram -->
-            <div style="flex:1; border:1px solid #ccc; border-radius:4px; padding:5px; display:flex; flex-direction:column;">
+            <div style="width: 48%; display: inline-block; vertical-align: top; margin-right: 2%; border:1px solid #ccc; border-radius:4px; padding:5px; box-sizing: border-box; height: 100%;">
                 <h4 style="margin:0 0 5px 0; border-bottom:1px solid #eee; font-size:0.9em; text-align:center;">車両状態チェック (傷・凹み等)</h4>
-                <div style="flex:1; display:flex; align-items:center; justify-content:center; position:relative;">
+                <div style="height: 250px; position:relative;">
                     <!-- Improved Car Diagram SVG -->
-                    <svg width="100%" height="100%" viewBox="0 0 400 280" style="opacity:0.7;">
+                    <svg width="400" height="280" viewBox="0 0 400 280" style="opacity:0.7; max-width: 100%;">
                         <style>
                             .car-line { fill: none; stroke: #555; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
                             .car-text { font-size: 10px; fill: #999; text-anchor: middle; font-family: sans-serif; }
@@ -1113,9 +1113,9 @@ function generatePreviewHtml() {
             </div>
 
             <!-- Memo Field -->
-             <div style="flex:1; border:1px solid #ccc; border-radius:4px; padding:5px; display:flex; flex-direction:column;">
+             <div style="width: 48%; display: inline-block; vertical-align: top; border:1px solid #ccc; border-radius:4px; padding:5px; box-sizing: border-box; height: 100%;">
                 <h4 style="margin:0 0 5px 0; border-bottom:1px solid #eee; font-size:0.9em; text-align:center;">整備メモ / 連絡事項</h4>
-                <div style="flex:1; position:relative; background-image: repeating-linear-gradient(transparent, transparent 39px, #eee 40px); background-size: 100% 40px;">
+                <div style="height: 250px; position:relative; background-image: repeating-linear-gradient(transparent, transparent 39px, #eee 40px); background-size: 100% 40px;">
                     <!-- Ruled lines background -->
                 </div>
             </div>
@@ -1198,8 +1198,8 @@ function generatePreviewHtml() {
     <div class="print-page avoid-break">
         <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 20px;">お見積り総括</h3>
 
-        <div style="display: flex; gap: 40px; align-items: flex-start; margin-bottom: 20px;">
-            <div style="flex: 1;">
+        <div style="margin-bottom: 20px;">
+            <div style="width: 48%; display: inline-block; vertical-align: top; margin-right: 2%;">
                 <h4 style="margin-top: 0; background: #eee; padding: 5px; font-size:1em;">法定費用・諸費用</h4>
                 <table class="preview-table" style="width: 100%; font-size: 0.9em; border-collapse: collapse;">
                     <tr style="border-bottom: 1px solid #ddd;"><td>自動車重量税</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
@@ -1211,7 +1211,7 @@ function generatePreviewHtml() {
                 </table>
             </div>
 
-            <div style="flex: 1;">
+            <div style="width: 48%; display: inline-block; vertical-align: top;">
                  <h4 style="margin-top: 0; background: #eee; padding: 5px; font-size:1em;">お支払い金額</h4>
                  <div style="font-size: 2.2em; font-weight: bold; text-align: right; margin: 20px 0; border-bottom: 2px solid #333;">
                     ¥${grand.toLocaleString()}
@@ -1231,8 +1231,8 @@ function generatePreviewHtml() {
                 <span style="font-weight:bold; text-decoration:underline;">保証期間：整備完了日より6ヶ月、または走行距離5,000kmのいずれか早い時点まで</span>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div>
+            <div style="margin-bottom: 20px;">
+                <div style="width: 48%; display: inline-block; vertical-align: top; margin-right: 2%;">
                     <strong>1. 保証の適用除外（免責事項）</strong><br>
                     以下の事項に該当する場合は、保証期間内であっても保証の対象外となります。
                     <ul style="padding-left: 20px; margin: 5px 0; font-size: 0.95em;">
@@ -1243,7 +1243,7 @@ function generatePreviewHtml() {
                         <li>天災、事故等による損傷。法定定期点検の未実施による故障。</li>
                     </ul>
                 </div>
-                <div>
+                <div style="width: 48%; display: inline-block; vertical-align: top;">
                     <strong>2. 損害の範囲</strong><br>
                     本保証は、当該不具合箇所の再整備または部品交換に限らせていただきます。
                     <ul style="padding-left: 20px; margin: 5px 0; font-size: 0.95em;">

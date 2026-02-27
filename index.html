@@ -158,32 +158,23 @@
             /* 印刷プレビュー領域の表示 */
             #printPreview {
                 display: block !important;
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                margin: 0;
-                padding: 0;
-                border: none;
-                box-shadow: none;
+                max-width: 1000px;
+                margin: 0 auto;
                 background-color: white;
             }
 
             /* 固定ページレイアウト用 */
             .print-page {
                 width: 100%;
-                /* A4高さ: 約1123px - 余白などを考慮して調整
-                   1115pxだとギリギリすぎて次ページがあくことがあるため、
-                   少し余裕を持って小さくする (1123px - 50px程度) */
-                height: 1080px;
+                max-width: 1000px;
+                /* A4縦比率に近似した高さ制限 */
+                height: 1414px;
+                /* 1000px * 1.414(ルート2) のA4比率に近い高さ（微調整可能）*/
                 page-break-after: always;
                 position: relative;
                 /* 印刷時の内部余白 */
                 padding: 40px 50px;
                 box-sizing: border-box;
-                display: flex;
-                flex-direction: column;
-                /* overflow: hidden; はみ出しを確認できるように一旦外すことも検討だが、レイアウト維持のため残す */
                 overflow: hidden;
             }
 
@@ -242,14 +233,12 @@
 
             /* 約款セクション（最終ページ用） */
             .terms-section {
-                margin-top: auto;
-                /* ページ下部に押し下げる */
+                clear: both;
+                margin-top: 30px;
                 border: 2px solid #555;
                 padding: 20px;
                 font-size: 0.85em;
                 background-color: #fff;
-                flex-grow: 1;
-                /* 残りのスペースを埋める */
             }
 
             /* モーダル関連の強制上書きリセット（念のため） */
