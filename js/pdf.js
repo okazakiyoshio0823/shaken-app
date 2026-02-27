@@ -32,7 +32,46 @@ function generatePDF() {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                windowWidth: 794 // 仮想A4横ピクセル幅に完全にロック
+                windowWidth: 794, // 仮想A4横ピクセル幅に完全にロック
+                onclone: function (clonedDoc) {
+                    // 1. キャプチャ対象（previewContent）の取得
+                    const target = clonedDoc.getElementById('previewContent');
+                    if (target) {
+                        // 2. ターゲット自身のマージン・パディングをリセットしA4幅を強制
+                        target.style.margin = '0';
+                        target.style.padding = '0';
+                        target.style.width = '794px';
+                        target.style.boxSizing = 'border-box';
+
+                        // 内部のprintPreviewコンテナもマージンを解除
+                        const preview = clonedDoc.getElementById('printPreview');
+                        if (preview) {
+                            preview.style.margin = '0';
+                            preview.style.width = '794px';
+                        }
+
+                        // 3. 親要素（モーダルの枠組みなど）をすべて遡ってレイアウト制約を粉砕する
+                        // （flexboxによる中央寄せなどのオフセット誤算を完全に排除するため）
+                        let parent = target.parentElement;
+                        while (parent && parent !== clonedDoc.body) {
+                            parent.style.margin = '0';
+                            parent.style.padding = '0';
+                            parent.style.width = 'auto';
+                            parent.style.maxWidth = 'none';
+                            parent.style.position = 'static';
+                            parent.style.transform = 'none';
+                            parent.style.display = 'block'; // flexやgridを解除
+                            parent.style.overflow = 'visible';
+                            parent.style.border = 'none';
+                            parent = parent.parentElement;
+                        }
+
+                        // Bodyの余白もゼロに
+                        clonedDoc.body.style.margin = '0';
+                        clonedDoc.body.style.padding = '0';
+                        clonedDoc.body.style.display = 'block';
+                    }
+                }
             },
             jsPDF: {
                 unit: 'mm',
