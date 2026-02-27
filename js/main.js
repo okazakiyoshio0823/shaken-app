@@ -1130,8 +1130,8 @@ function generatePreviewHtml() {
     // ====================================================
     // ページ2〜: 整備明細
     // ====================================================
-    // 調整: ページごとの行数 (ヘッダーやフッターの高さに応じて調整)
-    const ITEMS_PER_PAGE = 20;
+    // 調整: ページごとの行数 (明細が長くなりすぎないように15行に減らす)
+    const ITEMS_PER_PAGE = 15;
     const totalPages = Math.max(1, Math.ceil(maintenanceItems.length / ITEMS_PER_PAGE));
 
     for (let p = 0; p < totalPages; p++) {
@@ -1195,19 +1195,19 @@ function generatePreviewHtml() {
     // 最終ページ: 諸費用・合計・約款
     // ====================================================
     html += `
-    <div class="print-page">
+    <div class="print-page avoid-break">
         <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 20px;">お見積り総括</h3>
 
-        <div style="display: flex; gap: 40px; align-items: flex-start; margin-bottom: 30px;">
+        <div style="display: flex; gap: 40px; align-items: flex-start; margin-bottom: 20px;">
             <div style="flex: 1;">
                 <h4 style="margin-top: 0; background: #eee; padding: 5px; font-size:1em;">法定費用・諸費用</h4>
-                <table class="preview-table" style="width: 100%; font-size: 0.9em;">
-                    <tr><td>自動車重量税</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
-                    <tr><td>自賠責保険料</td><td class="text-right">¥${currentLegalFees.jibaiseki.toLocaleString()}</td></tr>
-                    <tr><td>印紙代</td><td class="text-right">¥${currentLegalFees.stamp.toLocaleString()}</td></tr>
-                    <tr><td>検査予約手数料</td><td class="text-right">¥${reserve.toLocaleString()}</td></tr>
-                    <tr><td>代行手数料</td><td class="text-right">¥${agency.toLocaleString()}</td></tr>
-                    <tr style="border-top: 2px solid #ccc;"><td class="text-right"><strong>諸費用 小計</strong></td><td class="text-right"><strong>¥${legal.toLocaleString()}</strong></td></tr>
+                <table class="preview-table" style="width: 100%; font-size: 0.9em; border-collapse: collapse;">
+                    <tr style="border-bottom: 1px solid #ddd;"><td>自動車重量税</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
+                    <tr style="border-bottom: 1px solid #ddd;"><td>自賠責保険料</td><td class="text-right">¥${currentLegalFees.jibaiseki.toLocaleString()}</td></tr>
+                    <tr style="border-bottom: 1px solid #ddd;"><td>印紙代</td><td class="text-right">¥${currentLegalFees.stamp.toLocaleString()}</td></tr>
+                    <tr style="border-bottom: 1px solid #ddd;"><td>検査予約手数料</td><td class="text-right">¥${reserve.toLocaleString()}</td></tr>
+                    <tr style="border-bottom: 1px solid #ddd;"><td>代行手数料</td><td class="text-right">¥${agency.toLocaleString()}</td></tr>
+                    <tr style="border-top: 2px solid #ccc; background:#f9f9f9;"><td class="text-right"><strong>諸費用 小計</strong></td><td class="text-right"><strong>¥${legal.toLocaleString()}</strong></td></tr>
                 </table>
             </div>
 
@@ -1239,16 +1239,15 @@ function generatePreviewHtml() {
                         <li>通常の使用による摩耗、消耗、経年劣化（ブレーキパッド、タイヤ、油脂類、ゴム部品等）。</li>
                         <li>当社以外で実施された修理、改造、分解整備に起因する不具合。</li>
                         <li>お客様の持ち込み部品（中古部品含む）の使用に起因する不具合。</li>
-                        <li>レース、ラリー、過積載など、通常の使用限度を超えた酷使に起因する故障。</li>
-                        <li>天災地変、火災、事故、盗難などによる損傷。</li>
-                        <li>日常点検または法定定期点検の未実施に起因する故障。</li>
+                        <li>レース等通常の使用限度を超えた酷使に起因する故障。</li>
+                        <li>天災、事故等による損傷。法定定期点検の未実施による故障。</li>
                     </ul>
                 </div>
                 <div>
                     <strong>2. 損害の範囲</strong><br>
                     本保証は、当該不具合箇所の再整備または部品交換に限らせていただきます。
                     <ul style="padding-left: 20px; margin: 5px 0; font-size: 0.95em;">
-                        <li>車両を使用できなかったことによる間接的損害（電話代、レンタカー代、休業補償、商業損失等）については保証いたしません。</li>
+                        <li>車両を使用できなかったことによる間接的損害（代車代、休業補償等）については保証いたしません。</li>
                         <li>車両の搬送費用（レッカー代等）は保証対象外となります。</li>
                     </ul>
                     <br>
@@ -1257,7 +1256,7 @@ function generatePreviewHtml() {
                 </div>
             </div>
             
-             <div class="preview-stamps" style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 20px;">
+             <div class="preview-stamps" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 20px;">
                 <div class="preview-stamp" style="border: 1px solid #333; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">担当</div>
                 <div class="preview-stamp" style="border: 1px solid #333; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">確認</div>
             </div>

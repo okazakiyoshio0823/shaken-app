@@ -31,12 +31,16 @@ function generatePDF() {
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                logging: false
+                logging: false,
+                windowWidth: 1024 // レイアウト崩れ防止のため幅を固定
             },
             jsPDF: {
                 unit: 'mm',
                 format: 'a4',
                 orientation: 'portrait'
+            },
+            pagebreak: {
+                mode: ['avoid-all', 'css', 'legacy']
             }
         };
 
