@@ -16,62 +16,43 @@ function generatePDF() {
         }
 
         // プレビューコンテンツを取得
-        const element = document.getElementById('previewContent');
+        const sourceElement = document.getElementById('previewContent');
 
-        if (!element || !element.innerHTML) {
+        if (!sourceElement || !sourceElement.innerHTML) {
             alert('プレビュー内容が見つかりません。先にプレビューを表示してください。');
             return;
         }
 
+        // 既存のモーダル内のDOMをそのままキャプチャすると画面上のセンタリングや
+        // Bootstrap、フレックスボックスの余白などをhtml2canvasが巻き込んで
+        // レイアウト崩れ（右切れ・謎の左マージン）を引き起こすため、
+        // 完全にクリーンな「A4サイズ(794px)の透明な仮想コンテナ」を作ってキャプチャさせる。
+        const pdfContainer = document.createElement('div');
+        pdfContainer.style.position = 'absolute';
+        pdfContainer.style.top = '0px';
+        pdfContainer.style.left = '0px';
+        pdfContainer.style.zIndex = '-9999'; // 画面の裏側に隠す
+        pdfContainer.style.width = '794px'; // 96dpiでのA4横幅の近似値に完全固定
+        pdfContainer.style.backgroundColor = '#ffffff';
+        pdfContainer.style.margin = '0';
+        pdfContainer.style.padding = '0';
+
+        // プレビューの内容をコピー
+        pdfContainer.innerHTML = sourceElement.innerHTML;
+        document.body.appendChild(pdfContainer);
+
         // html2pdfのオプション
         const opt = {
-            margin: 0, // マージンは0! すべてCSSのpaddingに任せる
+            margin: 0, // 余計なマージンは作らずCSSのpaddingに任せる
             filename: filename + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                windowWidth: 794, // 仮想A4横ピクセル幅に完全にロック
-                onclone: function (clonedDoc) {
-                    // 1. キャプチャ対象（previewContent）の取得
-                    const target = clonedDoc.getElementById('previewContent');
-                    if (target) {
-                        // 2. ターゲット自身のマージン・パディングをリセットしA4幅を強制
-                        target.style.margin = '0';
-                        target.style.padding = '0';
-                        target.style.width = '794px';
-                        target.style.boxSizing = 'border-box';
-
-                        // 内部のprintPreviewコンテナもマージンを解除
-                        const preview = clonedDoc.getElementById('printPreview');
-                        if (preview) {
-                            preview.style.margin = '0';
-                            preview.style.width = '794px';
-                        }
-
-                        // 3. 親要素（モーダルの枠組みなど）をすべて遡ってレイアウト制約を粉砕する
-                        // （flexboxによる中央寄せなどのオフセット誤算を完全に排除するため）
-                        let parent = target.parentElement;
-                        while (parent && parent !== clonedDoc.body) {
-                            parent.style.margin = '0';
-                            parent.style.padding = '0';
-                            parent.style.width = 'auto';
-                            parent.style.maxWidth = 'none';
-                            parent.style.position = 'static';
-                            parent.style.transform = 'none';
-                            parent.style.display = 'block'; // flexやgridを解除
-                            parent.style.overflow = 'visible';
-                            parent.style.border = 'none';
-                            parent = parent.parentElement;
-                        }
-
-                        // Bodyの余白もゼロに
-                        clonedDoc.body.style.margin = '0';
-                        clonedDoc.body.style.padding = '0';
-                        clonedDoc.body.style.display = 'block';
-                    }
-                }
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: 794 // キャプチャ幅をA4相当に固定
             },
             jsPDF: {
                 unit: 'mm',
@@ -84,15 +65,18 @@ function generatePDF() {
         };
 
         // PDFを生成してダウンロード
-        html2pdf().set(opt).from(element).save().then(() => {
+        html2pdf().set(opt).from(pdfContainer).save().then(() => {
             console.log('PDF保存完了:', filename);
+            document.body.removeChild(pdfContainer); // 仮想コンテナをお片付け
 
-            // ユーザーにヒントを表示（ブラウザの制限で保存先フォルダは直接指定できないため）
             if (userName) {
                 alert(`PDF保存しました！\n\n📁 ファイル名: ${filename}.pdf\n\n💡 ヒント: ダウンロードフォルダから\n「車検見積りデータ」フォルダに移動すると整理しやすくなります。`);
             }
         }).catch(err => {
             console.error('PDF生成エラー:', err);
+            if (document.body.contains(pdfContainer)) {
+                document.body.removeChild(pdfContainer);
+            }
             alert('PDF生成に失敗しました。ブラウザの印刷機能をお試しください。');
             // フォールバック: 印刷ダイアログを開く
             window.print();
