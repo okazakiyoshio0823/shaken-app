@@ -25,14 +25,14 @@ function generatePDF() {
 
         // html2pdfのオプション
         const opt = {
-            margin: [10, 5, 10, 5], // 上, 右, 下, 左
+            margin: 0, // マージンは0! すべてCSSのpaddingに任せる
             filename: filename + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                windowWidth: 1000 // index.htmlのmax-width指定に合わせる
+                windowWidth: 794 // 仮想A4横ピクセル幅に完全にロック
             },
             jsPDF: {
                 unit: 'mm',

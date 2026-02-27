@@ -163,17 +163,16 @@
                 background-color: white;
             }
 
-            /* 固定ページレイアウト用 */
+            /* 固定ページレイアウト用 (完全に794px = A4 ピクセル固定) */
             .print-page {
-                width: 100%;
-                max-width: 1000px;
-                /* A4縦比率に近似した高さ制限 */
-                height: 1414px;
-                /* 1000px * 1.414(ルート2) のA4比率に近い高さ（微調整可能）*/
+                width: 794px;
+                height: 1123px;
+                margin: 0 auto;
+                background: #fff;
                 page-break-after: always;
                 position: relative;
-                /* 印刷時の内部余白 */
-                padding: 40px 50px;
+                /* 印刷時の内部余白（フッター用などの隙間を確保） */
+                padding: 40px;
                 box-sizing: border-box;
                 overflow: hidden;
             }
@@ -187,7 +186,7 @@
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-end;
-                margin-bottom: 30px;
+                margin-bottom: 20px;
                 border-bottom: 2px solid #333;
                 padding-bottom: 10px;
             }

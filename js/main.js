@@ -1172,10 +1172,10 @@ function generatePreviewHtml() {
             </div>
             <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px;">整備明細 (${p + 1}/${totalPages})</h3>
             
-            <table class="preview-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+            <table class="preview-table" style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em;">
                 <thead style="background: #f0f0f0;">
                     <tr style="height: 35px; border-bottom: 2px solid #aaa;">
-                        <th style="width: 45%; text-align: left; padding-left: 8px;">整備項目</th>
+                        <th style="width: 45%; text-align: left; padding-left: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">整備項目</th>
                         <th style="width: 10%; text-align: right; padding-right: 8px;">数量</th>
                         <th style="width: 25%; text-align: right; padding-right: 8px;">単価(部品/工賃)</th>
                         <th style="width: 20%; text-align: right; padding-right: 8px;">金額(税込)</th>
