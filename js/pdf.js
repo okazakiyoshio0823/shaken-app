@@ -31,7 +31,7 @@ function generatePDF() {
         pdfContainer.style.position = 'absolute';
         pdfContainer.style.top = '0px';
         pdfContainer.style.left = '0px';
-        pdfContainer.style.zIndex = '-9999'; // 画面の裏側に隠す
+        pdfContainer.style.zIndex = '999999'; // 画面の最前面に一時的に表示して確実に撮影させる
         pdfContainer.style.width = '794px'; // 96dpiでのA4横幅の近似値に完全固定
         pdfContainer.style.backgroundColor = '#ffffff';
         pdfContainer.style.margin = '0';
