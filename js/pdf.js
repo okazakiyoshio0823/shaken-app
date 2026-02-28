@@ -15,35 +15,17 @@ function generatePDF() {
             filename = `${dateStr}_${plateSerial}_車検見積書`;
         }
 
-        // プレビューコンテンツを取得
-        const sourceElement = document.getElementById('previewContent');
+        // プレビューコンテンツを取得（既存のDOMを直接キャプチャする）
+        const element = document.getElementById('previewContent');
 
-        if (!sourceElement || !sourceElement.innerHTML) {
+        if (!element || !element.innerHTML) {
             alert('プレビュー内容が見つかりません。先にプレビューを表示してください。');
             return;
         }
 
-        // 既存のモーダル内のDOMをそのままキャプチャすると画面上のセンタリングや
-        // Bootstrap、フレックスボックスの余白などをhtml2canvasが巻き込んで
-        // レイアウト崩れ（右切れ・謎の左マージン）を引き起こすため、
-        // 完全にクリーンな「A4サイズ(794px)の透明な仮想コンテナ」を作ってキャプチャさせる。
-        const pdfContainer = document.createElement('div');
-        pdfContainer.style.position = 'absolute';
-        pdfContainer.style.top = '0px';
-        pdfContainer.style.left = '0px';
-        pdfContainer.style.zIndex = '999999'; // 画面の最前面に一時的に表示して確実に撮影させる
-        pdfContainer.style.width = '794px'; // 96dpiでのA4横幅の近似値に完全固定
-        pdfContainer.style.backgroundColor = '#ffffff';
-        pdfContainer.style.margin = '0';
-        pdfContainer.style.padding = '0';
-
-        // プレビューの内容をコピー
-        pdfContainer.innerHTML = sourceElement.innerHTML;
-        document.body.appendChild(pdfContainer);
-
         // html2pdfのオプション
         const opt = {
-            margin: 0, // 余計なマージンは作らずCSSのpaddingに任せる
+            margin: 0, // マージンはゼロ（CSS側のpadding: 40pxにすべて任せる）
             filename: filename + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
@@ -52,7 +34,41 @@ function generatePDF() {
                 logging: false,
                 scrollX: 0,
                 scrollY: 0,
-                windowWidth: 794 // キャプチャ幅をA4相当に固定
+                windowWidth: 794, // キャプチャの横幅をA4相当(794px)に固定
+                onclone: function (clonedDoc) {
+                    // PDF生成用のクローンDOM内で、画面の中央表示用に使われている margin: 0 auto; などの
+                    // 余分なレイアウト設定を強制解除し、A4用紙枠を原点(0, 0)にビタ止めさせる
+
+                    // 1. 各ページ（.print-page）のマージンをリセット
+                    const pages = clonedDoc.querySelectorAll('.print-page');
+                    pages.forEach(page => {
+                        page.style.margin = '0';
+                        page.style.boxSizing = 'border-box';
+                    });
+
+                    // 2. プレビュー自体のマージンをリセット
+                    const preview = clonedDoc.getElementById('printPreview');
+                    if (preview) {
+                        preview.style.margin = '0';
+                        preview.style.padding = '0';
+                    }
+
+                    // 3. body自体の余白も完全にゼロにし、flexやセンタリングを解除
+                    clonedDoc.body.style.margin = '0';
+                    clonedDoc.body.style.padding = '0';
+                    clonedDoc.body.style.display = 'block';
+
+                    // 4. モーダル等の影響を排除するため、親ノードを遡ってマージンとパディングを無効化
+                    let parent = clonedDoc.getElementById('previewContent').parentElement;
+                    while (parent && parent !== clonedDoc.body) {
+                        parent.style.margin = '0';
+                        parent.style.padding = '0';
+                        parent.style.display = 'block';
+                        parent.style.position = 'static';
+                        parent.style.transform = 'none';
+                        parent = parent.parentElement;
+                    }
+                }
             },
             jsPDF: {
                 unit: 'mm',
@@ -65,18 +81,14 @@ function generatePDF() {
         };
 
         // PDFを生成してダウンロード
-        html2pdf().set(opt).from(pdfContainer).save().then(() => {
+        html2pdf().set(opt).from(element).save().then(() => {
             console.log('PDF保存完了:', filename);
-            document.body.removeChild(pdfContainer); // 仮想コンテナをお片付け
 
             if (userName) {
                 alert(`PDF保存しました！\n\n📁 ファイル名: ${filename}.pdf\n\n💡 ヒント: ダウンロードフォルダから\n「車検見積りデータ」フォルダに移動すると整理しやすくなります。`);
             }
         }).catch(err => {
             console.error('PDF生成エラー:', err);
-            if (document.body.contains(pdfContainer)) {
-                document.body.removeChild(pdfContainer);
-            }
             alert('PDF生成に失敗しました。ブラウザの印刷機能をお試しください。');
             // フォールバック: 印刷ダイアログを開く
             window.print();
