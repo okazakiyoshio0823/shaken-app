@@ -63,8 +63,27 @@ function generatePDF() {
                     while (parent && parent !== clonedDoc.body) {
                         parent.style.margin = '0';
                         parent.style.padding = '0';
-                        parent.style.display = 'block';
-                        parent.style.position = 'static';
+                        parent.style.display = 'block'; // flexを解除し通常縦積みに
+
+                        // height, max-height, overflowの制限を完全解除（これでスクロール見切れを防ぐ）
+                        parent.style.height = 'auto';
+                        parent.style.maxHeight = 'none';
+                        parent.style.overflow = 'visible';
+
+                        // 一番外枠のモーダル背景だけは左上に絶対固定し直す（さもないと下に落ちて白紙になる）
+                        if (parent.id === 'previewModal') {
+                            parent.style.position = 'absolute';
+                            parent.style.top = '0';
+                            parent.style.left = '0';
+                            parent.style.width = '794px';
+                            parent.style.background = '#fff';
+                        } else {
+                            // それ以外の中間コンテナはstaticで安全に流し込む
+                            parent.style.position = 'static';
+                            parent.style.width = 'auto';
+                            parent.style.maxWidth = 'none';
+                        }
+
                         parent.style.transform = 'none';
                         parent = parent.parentElement;
                     }
