@@ -36,43 +36,55 @@ function generatePDF() {
                 scrollY: 0,
                 windowWidth: 794, // キャプチャの横幅をA4相当(794px)に固定
                 onclone: function (clonedDoc) {
-                    // PDF生成用のクローンDOM内で、画面の中央表示用に使われている margin やモーダルの枠組みなど
-                    // html2canvas の座標計算を狂わせる（拡大や左見切れの）原因となるすべての要素を完全に破壊し、
-                    // 純粋な A4プレビュー領域（794px）だけを絶対座標(0,0)に再配置する最強のハック。
+                    // DOM構造を改変（appendChild等）するとhtml2canvasがクラッシュし、
+                    // エラーフォールバックとしてブラウザ標準の印刷画面が開いてしまうため、
+                    // クローンされたDOMの色付けや非表示（CSS制御）のみに留める最も安全なハック。
 
                     const target = clonedDoc.getElementById('previewContent');
                     if (!target) return;
 
-                    // 1. 各ページ（.print-page）のマージンをリセット
+                    // 1. 各ページ（.print-page）の余計なマージンをリセット
                     const pages = target.querySelectorAll('.print-page');
                     pages.forEach(page => {
                         page.style.margin = '0';
                         page.style.boxSizing = 'border-box';
                     });
 
-                    // 2. プレビュー自体のマージンをリセット
+                    // 2. プレビュー領域（#printPreview）自体のマージンをリセットし、
+                    // html2canvasに「余白」を誤認されないよう強制的に左上(0,0)に固定する
                     const preview = target.querySelector('#printPreview') || target;
                     preview.style.margin = '0';
                     preview.style.padding = '0';
+                    preview.style.position = 'absolute';
+                    preview.style.top = '0';
+                    preview.style.left = '0';
+                    preview.style.width = '794px';
+                    preview.style.background = '#fff';
 
-                    // 3. ターゲット要素を、モーダル等のすべての親要素から引き剥がすための事前準備
-                    target.style.position = 'absolute';
-                    target.style.top = '0';
-                    target.style.left = '0';
-                    target.style.margin = '0';
-                    target.style.padding = '0';
-                    target.style.width = '794px';
-                    target.style.background = '#fff';
-
-                    // 4. クローンされたDOMのBODYを完全に更地（真っ白）にする
-                    clonedDoc.body.innerHTML = '';
+                    // 3. クラッシュを避けるためDOM階層はそのまま維持し、
+                    // プレビュー内容「以外」のすべての要素をCSSで不可視化する
                     clonedDoc.body.style.margin = '0';
                     clonedDoc.body.style.padding = '0';
                     clonedDoc.body.style.background = '#fff';
 
-                    // 5. さきほど引き剥がした純度100%のターゲット要素だけを、何もないBODYの左上にポツンと配置する
-                    // これにより、モーダルのセンタリング余白やスクロール量などのあらゆる座標計算エラーが物理的に発生しなくなる
-                    clonedDoc.body.appendChild(target);
+                    // モーダルの黒背景やヘッダーなど、キャプチャの邪魔になるものを強制非表示
+                    const hideTargets = clonedDoc.querySelectorAll('body > *:not(#previewModal), #previewModal > *:not(.modal-dialog), .modal-dialog > *:not(.modal-content), .modal-content > *:not(#previewContent), .app-container');
+                    hideTargets.forEach(el => {
+                        if (el && el.style) el.style.display = 'none';
+                    });
+
+                    // 親階層のスクロール等による見切れを防ぐため一律リセット
+                    let parent = target.parentElement;
+                    while (parent && parent !== clonedDoc.body) {
+                        parent.style.margin = '0';
+                        parent.style.padding = '0';
+                        parent.style.position = 'static';
+                        parent.style.display = 'block';
+                        parent.style.height = 'auto';
+                        parent.style.maxHeight = 'none';
+                        parent.style.overflow = 'visible';
+                        parent = parent.parentElement;
+                    }
                 }
             },
             jsPDF: {
