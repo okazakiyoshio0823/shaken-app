@@ -36,57 +36,43 @@ function generatePDF() {
                 scrollY: 0,
                 windowWidth: 794, // キャプチャの横幅をA4相当(794px)に固定
                 onclone: function (clonedDoc) {
-                    // PDF生成用のクローンDOM内で、画面の中央表示用に使われている margin: 0 auto; などの
-                    // 余分なレイアウト設定を強制解除し、A4用紙枠を原点(0, 0)にビタ止めさせる
+                    // PDF生成用のクローンDOM内で、画面の中央表示用に使われている margin やモーダルの枠組みなど
+                    // html2canvas の座標計算を狂わせる（拡大や左見切れの）原因となるすべての要素を完全に破壊し、
+                    // 純粋な A4プレビュー領域（794px）だけを絶対座標(0,0)に再配置する最強のハック。
+
+                    const target = clonedDoc.getElementById('previewContent');
+                    if (!target) return;
 
                     // 1. 各ページ（.print-page）のマージンをリセット
-                    const pages = clonedDoc.querySelectorAll('.print-page');
+                    const pages = target.querySelectorAll('.print-page');
                     pages.forEach(page => {
                         page.style.margin = '0';
                         page.style.boxSizing = 'border-box';
                     });
 
                     // 2. プレビュー自体のマージンをリセット
-                    const preview = clonedDoc.getElementById('printPreview');
-                    if (preview) {
-                        preview.style.margin = '0';
-                        preview.style.padding = '0';
-                    }
+                    const preview = target.querySelector('#printPreview') || target;
+                    preview.style.margin = '0';
+                    preview.style.padding = '0';
 
-                    // 3. body自体の余白も完全にゼロにし、flexやセンタリングを解除
+                    // 3. ターゲット要素を、モーダル等のすべての親要素から引き剥がすための事前準備
+                    target.style.position = 'absolute';
+                    target.style.top = '0';
+                    target.style.left = '0';
+                    target.style.margin = '0';
+                    target.style.padding = '0';
+                    target.style.width = '794px';
+                    target.style.background = '#fff';
+
+                    // 4. クローンされたDOMのBODYを完全に更地（真っ白）にする
+                    clonedDoc.body.innerHTML = '';
                     clonedDoc.body.style.margin = '0';
                     clonedDoc.body.style.padding = '0';
-                    clonedDoc.body.style.display = 'block';
+                    clonedDoc.body.style.background = '#fff';
 
-                    // 4. モーダル等の影響を排除するため、親ノードを遡ってマージンとパディングを無効化
-                    let parent = clonedDoc.getElementById('previewContent').parentElement;
-                    while (parent && parent !== clonedDoc.body) {
-                        parent.style.margin = '0';
-                        parent.style.padding = '0';
-                        parent.style.display = 'block'; // flexを解除し通常縦積みに
-
-                        // height, max-height, overflowの制限を完全解除（これでスクロール見切れを防ぐ）
-                        parent.style.height = 'auto';
-                        parent.style.maxHeight = 'none';
-                        parent.style.overflow = 'visible';
-
-                        // 一番外枠のモーダル背景だけは左上に絶対固定し直す（さもないと下に落ちて白紙になる）
-                        if (parent.id === 'previewModal') {
-                            parent.style.position = 'absolute';
-                            parent.style.top = '0';
-                            parent.style.left = '0';
-                            parent.style.width = '794px';
-                            parent.style.background = '#fff';
-                        } else {
-                            // それ以外の中間コンテナはstaticで安全に流し込む
-                            parent.style.position = 'static';
-                            parent.style.width = 'auto';
-                            parent.style.maxWidth = 'none';
-                        }
-
-                        parent.style.transform = 'none';
-                        parent = parent.parentElement;
-                    }
+                    // 5. さきほど引き剥がした純度100%のターゲット要素だけを、何もないBODYの左上にポツンと配置する
+                    // これにより、モーダルのセンタリング余白やスクロール量などのあらゆる座標計算エラーが物理的に発生しなくなる
+                    clonedDoc.body.appendChild(target);
                 }
             },
             jsPDF: {
