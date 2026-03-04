@@ -31,10 +31,11 @@ function generatePDF() {
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                logging: false,
+                logging: false, // 複雑な問題をデバッグするため、ここではtrueにしてコンソールを確認する手もありますが一旦false
                 scrollX: 0,
                 scrollY: 0,
                 windowWidth: 794, // キャプチャの横幅をA4相当(794px)に固定
+                windowHeight: document.getElementById('previewContent') ? document.getElementById('previewContent').scrollHeight + 100 : 3000, // 高さが0として計算されるのを防ぐための十分な領域指定
                 onclone: function (clonedDoc) {
                     // DOM構造を改変（appendChild等）するとhtml2canvasがクラッシュし、
                     // エラーフォールバックとしてブラウザ標準の印刷画面が開いてしまうため、
@@ -73,13 +74,15 @@ function generatePDF() {
                         if (el && el.style) el.style.display = 'none';
                     });
 
-                    // 親階層のスクロール等による見切れを防ぐため一律リセット
+                    // 親階層のスクロール等による見切れ・白紙化を防ぐため一律リセット＆強制表示
                     let parent = target.parentElement;
                     while (parent && parent !== clonedDoc.body) {
                         parent.style.margin = '0';
                         parent.style.padding = '0';
                         parent.style.position = 'static';
-                        parent.style.display = 'block';
+                        parent.style.display = 'block'; // 強制的にブロック要素化
+                        parent.style.opacity = '1';     // 強制的に不透明化
+                        parent.style.visibility = 'visible'; // 強制的に可視化
                         parent.style.height = 'auto';
                         parent.style.maxHeight = 'none';
                         parent.style.overflow = 'visible';
