@@ -23,16 +23,49 @@ function generatePDF() {
             return;
         }
 
-        // html2pdfのオプション（過去正常動作していた設定）
+        // html2pdfのオプション（ズレのない完全フィット設定）
         const opt = {
-            margin: 0, // marginは0のほうがプレビュー通りになりますが、過去を尊重しつつ調整
+            margin: 0,
             filename: filename + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                windowWidth: 1024 // 過去の正常動作時の幅指定
+                windowWidth: 794, // 過去の1024枠指定だと左側余白分がズレる原因になるため、A4ジャスト幅に完全固定
+                scrollX: 0,       // ブラウザの横スクロールによる「左側見切れ」を完全防止
+                scrollY: 0,       // ブラウザの縦スクロールによる上ズレを防止
+                onclone: function (clonedDoc) {
+                    const target = clonedDoc.getElementById('previewContent');
+                    if (!target) return;
+
+                    // 1. 各ページのセンタリング（margin: 0 auto）を強制解除
+                    // これが残っているとhtml2canvasが左側の余白(マージン)ごとキャプチャしてしまい、右にズレて左が切れる原因になる
+                    const printPreview = target.querySelector('#printPreview');
+                    const pages = target.querySelectorAll('.print-page');
+
+                    if (printPreview) {
+                        printPreview.style.margin = '0';
+                        printPreview.style.maxWidth = '794px';
+                        printPreview.style.width = '794px';
+                    }
+
+                    pages.forEach(page => {
+                        page.style.margin = '0';
+                    });
+
+                    // 2. モーダル等の親要素による目に見えないパディングやTransformのズレをすべて排除
+                    let parent = target.parentElement;
+                    while (parent && parent !== clonedDoc.body) {
+                        parent.style.margin = '0';
+                        parent.style.padding = '0';
+                        parent.style.transform = 'none';
+                        parent.style.border = 'none';
+                        // overflowを解除して、はみ出しによる見切れを防ぐ
+                        parent.style.overflow = 'visible';
+                        parent = parent.parentElement;
+                    }
+                }
             },
             jsPDF: {
                 unit: 'mm',
@@ -40,7 +73,7 @@ function generatePDF() {
                 orientation: 'portrait'
             },
             pagebreak: {
-                mode: ['avoid-all', 'css', 'legacy']
+                mode: ['css', 'legacy']
             }
         };
 
