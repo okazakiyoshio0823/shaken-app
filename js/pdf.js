@@ -44,8 +44,8 @@ function generatePDF() {
                     // ※これをしないとhtml2canvasが「画面中央にある」と誤認してX座標をズラしてしまう
                     target.style.margin = '0';
                     target.style.padding = '0';
-                    target.style.width = '794px';       // A4横幅に強制固定
-                    target.style.maxWidth = '794px';
+                    target.style.width = '800px';       // 右端切れ防止のためA4ジャスト(794)より数ピクセル余裕を持たせる
+                    target.style.maxWidth = '800px';
 
                     // 2. 内部の各ページのセンタリング（margin: 0 auto）も強制解除
                     const pages = target.querySelectorAll('.print-page');
