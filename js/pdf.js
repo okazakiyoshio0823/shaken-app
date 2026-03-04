@@ -23,61 +23,36 @@ function generatePDF() {
             return;
         }
 
-        // ==========================================
-        // 【白紙化対策 v4 最シンプル＆原寸大キャプチャ方式】
-        // ==========================================
-        // 不要なDOM複製等を全て廃止し、「今見えているプレビュー画面」をそのままターゲットにする原点回帰。
-        // キャプチャミスを防ぐため、要素の絶対座標とサイズを正確に取得してエンジンに渡す。
-        const rect = element.getBoundingClientRect();
-
-        // プレビュー領域の装飾（影や角丸）を一時的にオフにしてプレーンな状態にする
-        const originalBoxShadow = element.style.boxShadow;
-        const originalBorderRadius = element.style.borderRadius;
-        element.style.boxShadow = 'none';
-        element.style.borderRadius = '0';
-
-        // html2pdfのオプション
+        // html2pdfのオプション（過去正常動作していた設定）
         const opt = {
-            margin: 0,
+            margin: 0, // marginは0のほうがプレビュー通りになりますが、過去を尊重しつつ調整
             filename: filename + '.pdf',
-            image: { type: 'jpeg', quality: 1 }, // 最高画質
+            image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                backgroundColor: '#ffffff', // 背景を強制的に白にして透明化バグを防ぐ
-                removeContainer: true,      // 処理後のゴミコンテナを強制削除
-                // キャプチャ対象の座標とサイズを強制指定（これで画面外の白紙を撮るのを防ぐ）
-                x: rect.left,
-                y: rect.top,
-                width: rect.width,
-                height: rect.height,
-                windowWidth: document.documentElement.scrollWidth,
-                windowHeight: document.documentElement.scrollHeight,
-                scrollX: 0,
-                scrollY: 0
+                windowWidth: 1024 // 過去の正常動作時の幅指定
             },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            // 1ページのみ出力できれば良いとのことなので、pagebreakオプションは外します
+            jsPDF: {
+                unit: 'mm',
+                format: 'a4',
+                orientation: 'portrait'
+            },
+            pagebreak: {
+                mode: ['avoid-all', 'css', 'legacy']
+            }
         };
 
         // PDFを生成してダウンロード
         html2pdf().set(opt).from(element).save().then(() => {
             console.log('PDF保存完了:', filename);
 
-            // スタイルを元に戻す
-            element.style.boxShadow = originalBoxShadow;
-            element.style.borderRadius = originalBorderRadius;
-
             if (userName) {
                 alert(`PDF保存しました！\n\n📁 ファイル名: ${filename}.pdf\n\n💡 ヒント: ダウンロードフォルダから\n「車検見積りデータ」フォルダに移動すると整理しやすくなります。`);
             }
         }).catch(err => {
             console.error('PDF生成エラー:', err);
-
-            // スタイルを元に戻す
-            element.style.boxShadow = originalBoxShadow;
-            element.style.borderRadius = originalBorderRadius;
 
             alert('PDF生成に失敗しました。ブラウザの印刷機能をお試しください。');
             window.print();
