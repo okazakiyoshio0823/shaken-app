@@ -15,8 +15,9 @@ function generatePDF() {
             filename = `${dateStr}_${plateSerial}_車検見積書`;
         }
 
-        // プレビューコンテンツを取得
-        const element = document.getElementById('previewContent');
+        // 【最重要修正】モーダル全体ではなく、余白のない純粋なA4プレビュー領域（printPreview）を直接対象にする
+        // これにより親要素のpadding分がキャプチャに巻き込まれて「左にズレて右が切れる」現象を完全に防ぎます。
+        const element = document.getElementById('printPreview');
 
         if (!element || !element.innerHTML) {
             alert('プレビュー内容が見つかりません。先にプレビューを表示してください。');
@@ -27,41 +28,39 @@ function generatePDF() {
         const opt = {
             margin: 0,
             filename: filename + '.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
+            image: { type: 'jpeg', quality: 1.0 }, // 高画質化
             html2canvas: {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                windowWidth: 794, // 過去の1024枠指定だと左側余白分がズレる原因になるため、A4ジャスト幅に完全固定
-                scrollX: 0,       // ブラウザの横スクロールによる「左側見切れ」を完全防止
+                scrollX: 0,       // ブラウザの横スクロールによる「左側見切れ」を防止
                 scrollY: 0,       // ブラウザの縦スクロールによる上ズレを防止
                 onclone: function (clonedDoc) {
-                    const target = clonedDoc.getElementById('previewContent');
+                    // クローンされたDOM内で、キャプチャ対象を再度取得
+                    const target = clonedDoc.getElementById('printPreview');
                     if (!target) return;
 
-                    // 1. 各ページのセンタリング（margin: 0 auto）を強制解除
-                    // これが残っているとhtml2canvasが左側の余白(マージン)ごとキャプチャしてしまい、右にズレて左が切れる原因になる
-                    const printPreview = target.querySelector('#printPreview');
+                    // 1. キャプチャ対象自体のセンタリングや不確定な余白を完全リセットして左寄せ固定
+                    // ※これをしないとhtml2canvasが「画面中央にある」と誤認してX座標をズラしてしまう
+                    target.style.margin = '0';
+                    target.style.padding = '0';
+                    target.style.width = '794px';       // A4横幅に強制固定
+                    target.style.maxWidth = '794px';
+
+                    // 2. 内部の各ページのセンタリング（margin: 0 auto）も強制解除
                     const pages = target.querySelectorAll('.print-page');
-
-                    if (printPreview) {
-                        printPreview.style.margin = '0';
-                        printPreview.style.maxWidth = '794px';
-                        printPreview.style.width = '794px';
-                    }
-
                     pages.forEach(page => {
                         page.style.margin = '0';
                     });
 
-                    // 2. モーダル等の親要素による目に見えないパディングやTransformのズレをすべて排除
+                    // 3. 最重要：親要素（モーダルの枠など）が持つ見えないPaddingやMarginを完全に剥ぎ取る
                     let parent = target.parentElement;
                     while (parent && parent !== clonedDoc.body) {
                         parent.style.margin = '0';
                         parent.style.padding = '0';
-                        parent.style.transform = 'none';
                         parent.style.border = 'none';
-                        // overflowを解除して、はみ出しによる見切れを防ぐ
+                        parent.style.transform = 'none';
+                        parent.style.position = 'static';
                         parent.style.overflow = 'visible';
                         parent = parent.parentElement;
                     }
