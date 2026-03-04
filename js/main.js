@@ -992,7 +992,7 @@ function generatePreviewHtml() {
     // ページ1: 表紙
     // ====================================================
     html += `
-    <div class="print-page">
+    <div class="print-page" style="display: flex; flex-direction: column; height: 1123px;">
         <div class="header-section">
             <div class="company-info" style="text-align: right; margin-left: auto;">
                 ${logoHtml}<br>
@@ -1049,7 +1049,7 @@ function generatePreviewHtml() {
             </div>`;
         })()}
 
-        <!-- Diagram & Memo Section -->
+        // Diagram & Memo Section
         <div style="margin-top:15px; height: 300px; margin-bottom: 30px;">
             <!-- Vehicle Diagram -->
             <div style="width: 48%; display: inline-block; vertical-align: top; margin-right: 2%; border:1px solid #ccc; border-radius:4px; padding:5px; box-sizing: border-box; height: 100%;">
@@ -1196,7 +1196,7 @@ function generatePreviewHtml() {
     // 最終ページ: 諸費用・合計・約款
     // ====================================================
     html += `
-    <div class="print-page avoid-break">
+    <div class="print-page avoid-break" style="display: flex; flex-direction: column; height: 1123px;">
         <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 20px;">お見積り総括</h3>
 
         <div style="margin-bottom: 20px;">
