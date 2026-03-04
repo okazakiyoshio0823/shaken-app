@@ -1130,8 +1130,8 @@ function generatePreviewHtml() {
     // ====================================================
     // ページ2〜: 整備明細
     // ====================================================
-    // 調整: ページごとの行数 (明細が長くなりすぎないように15行に減らす)
-    const ITEMS_PER_PAGE = 15;
+    // 調整: ページごとの行数 (明細が長くなりすぎないよう、余裕をもって10行に制限)
+    const ITEMS_PER_PAGE = 10;
     const totalPages = Math.max(1, Math.ceil(maintenanceItems.length / ITEMS_PER_PAGE));
 
     for (let p = 0; p < totalPages; p++) {
