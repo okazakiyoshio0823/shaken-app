@@ -992,7 +992,7 @@ function generatePreviewHtml() {
     // ページ1: 表紙
     // ====================================================
     html += `
-    <div class="print-page" style="display: flex; flex-direction: column; height: 1123px;">
+    <div class="print-page" style="display: flex; flex-direction: column; height: 1122px;">
         <div class="header-section">
             <div class="company-info" style="text-align: right; margin-left: auto;">
                 ${logoHtml}<br>
@@ -1166,13 +1166,13 @@ function generatePreviewHtml() {
         }
 
         html += `
-        <div class="print-page" style="display: flex; flex-direction: column; height: 1123px;">
+        <div class="print-page" style="display: flex; flex-direction: column; height: 1122px;">
             <div style="margin-bottom: 10px; text-align:right; font-size:0.8em; color:#666;">
                  No. ${escapeHtml(plate)} / ${p + 1}
             </div>
             <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px;">整備明細 (${p + 1}/${totalPages})</h3>
             
-            <table class="preview-table" style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em;">
+            <table class="preview-table" style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em; flex-grow: 1; margin-bottom: 15px;">
                 <thead style="background: #f0f0f0;">
                     <tr style="height: 35px; border-bottom: 2px solid #aaa;">
                         <th style="width: 45%; text-align: left; padding-left: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">整備項目</th>
@@ -1196,7 +1196,7 @@ function generatePreviewHtml() {
     // 最終ページ: 諸費用・合計・約款
     // ====================================================
     html += `
-    <div class="print-page avoid-break" style="display: flex; flex-direction: column; height: 1123px;">
+    <div class="print-page avoid-break" style="display: flex; flex-direction: column; height: 1122px;">
         <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 20px;">お見積り総括</h3>
 
         <div style="margin-bottom: 20px;">
