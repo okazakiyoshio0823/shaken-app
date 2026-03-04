@@ -66,13 +66,13 @@ git push -u origin master
 
 ### 含まれるべきファイル
 
-- [x] すべてのHTMLファイル（login.html, index.html など）
-- [x] CSS/JSファイル
-- [x] serverディレクトリ（src/, package.json など）
-- [x] .gitignore
-- [x] README.md
-- [x] server/.env.example
-- [x] server/uploads/.gitkeep
+- [X] すべてのHTMLファイル（login.html, index.html など）
+- [X] CSS/JSファイル
+- [X] serverディレクトリ（src/, package.json など）
+- [X] .gitignore
+- [X] README.md
+- [X] server/.env.example
+- [X] server/uploads/.gitkeep
 
 ### 除外されるファイル（.gitignoreで自動除外）
 
@@ -106,15 +106,12 @@ git status
    SMTP_USER=<your-email>
    SMTP_PASS=<your-app-password>
    ```
-
 2. **PostgreSQLアドオンを追加**（推奨）
-
 3. **ビルドコマンド**:
 
    ```bash
    cd server && npm install
    ```
-
 4. **起動コマンド**:
 
    ```bash

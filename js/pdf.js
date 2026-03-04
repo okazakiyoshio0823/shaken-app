@@ -68,7 +68,7 @@ function generatePDF() {
                     clonedDoc.body.style.background = '#fff';
 
                     // モーダルの黒背景やヘッダーなど、キャプチャの邪魔になるものを強制非表示
-                    const hideTargets = clonedDoc.querySelectorAll('body > *:not(#previewModal), #previewModal > *:not(.modal-dialog), .modal-dialog > *:not(.modal-content), .modal-content > *:not(#previewContent), .app-container');
+                    const hideTargets = clonedDoc.querySelectorAll('body > *:not(#previewModal), #previewModal > *:not(.modal-content), .modal-content > *:not(#previewContent), .app-container');
                     hideTargets.forEach(el => {
                         if (el && el.style) el.style.display = 'none';
                     });
