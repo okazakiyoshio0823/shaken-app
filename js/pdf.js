@@ -23,94 +23,79 @@ function generatePDF() {
             return;
         }
 
+        // 【最強の白紙化対策 v3】
+        // モーダル等特有の「overflow: hidden」や「max-height」などのCSS制限を一切受けないよう、
+        // 独立した専用コンテナを作成し、対象要素のHTMLのみをコピーします。
+        const renderContainer = document.createElement('div');
+        renderContainer.id = 'pdf-render-container';
+        // HTML2Canvasから確実に「画面内で可視状態にある」と判定させるため左上に配置しつつ、
+        // ユーザーからは見えないよう z-index でアプリの裏側に隠します。
+        renderContainer.style.position = 'absolute';
+        renderContainer.style.top = '0';
+        renderContainer.style.left = '0';
+        renderContainer.style.width = '794px'; // A4相当
+        renderContainer.style.minHeight = '1123px'; // 最低でもA4・1枚分の高さを確保
+        renderContainer.style.background = '#fff';
+        renderContainer.style.zIndex = '-9999';
+        // overflow は確実に visible
+        renderContainer.style.overflow = 'visible';
+
+        // プレビューの中身を完全にコピー
+        // 元のDOMからHTML文字列として複製するため、既存のDOMへの変更は一切及ぼしません
+        renderContainer.innerHTML = element.innerHTML;
+        document.body.appendChild(renderContainer);
+
+        // 各ページのマージンをリセットし、高さやoverflowの制限を完全に解除
+        const pages = renderContainer.querySelectorAll('.print-page');
+        pages.forEach(page => {
+            page.style.margin = '0';
+            page.style.padding = '0';
+            page.style.boxSizing = 'border-box';
+            page.style.maxHeight = 'none';
+            page.style.overflow = 'visible';
+            page.style.height = 'auto';
+            page.style.pageBreakAfter = 'always';
+        });
+
+        // プレビュー全体を囲むコンテナがあればそれも制限解除
+        const printPreview = renderContainer.querySelector('#printPreview');
+        if (printPreview) {
+            printPreview.style.maxHeight = 'none';
+            printPreview.style.overflow = 'visible';
+            printPreview.style.height = 'auto';
+            printPreview.style.boxShadow = 'none';
+            printPreview.style.margin = '0';
+        }
+
         // html2pdfのオプション
         const opt = {
-            margin: 0, // マージンはゼロ（CSS側のpadding: 40pxにすべて任せる）
+            margin: 0,
             filename: filename + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
-                scale: 2,
-                useCORS: true,
-                logging: false, // 複雑な問題をデバッグするため、ここではtrueにしてコンソールを確認する手もありますが一旦false
+                scale: 2,           // 高画質化
+                useCORS: true,      // 外部画像許可
+                logging: false,     // ログ出力
+                windowWidth: 794,   // 固定幅
                 scrollX: 0,
-                scrollY: 0,
-                windowWidth: 794, // キャプチャの横幅をA4相当(794px)に固定
-                windowHeight: document.getElementById('previewContent') ? document.getElementById('previewContent').scrollHeight + 100 : 3000, // 高さが0として計算されるのを防ぐための十分な領域指定
-                onclone: function (clonedDoc) {
-                    // DOM構造を改変（appendChild等）するとhtml2canvasがクラッシュし、
-                    // エラーフォールバックとしてブラウザ標準の印刷画面が開いてしまうため、
-                    // クローンされたDOMの色付けや非表示（CSS制御）のみに留める最も安全なハック。
-
-                    const target = clonedDoc.getElementById('previewContent');
-                    if (!target) return;
-
-                    // 1. 各ページ（.print-page）の余計なマージンをリセット
-                    const pages = target.querySelectorAll('.print-page');
-                    pages.forEach(page => {
-                        page.style.margin = '0';
-                        page.style.boxSizing = 'border-box';
-                    });
-
-                    // 2. プレビュー領域（#printPreview）自体のマージンをリセットし、
-                    // html2canvasに「余白」を誤認されないよう強制的に左上(0,0)に固定する
-                    const preview = target.querySelector('#printPreview') || target;
-                    preview.style.margin = '0';
-                    preview.style.padding = '0';
-                    preview.style.position = 'absolute';
-                    preview.style.top = '0';
-                    preview.style.left = '0';
-                    preview.style.width = '794px';
-                    preview.style.background = '#fff';
-
-                    // 3. クラッシュを避けるためDOM階層はそのまま維持し、
-                    // プレビュー内容「以外」のすべての要素をCSSで不可視化する
-                    clonedDoc.body.style.margin = '0';
-                    clonedDoc.body.style.padding = '0';
-                    clonedDoc.body.style.background = '#fff';
-
-                    // モーダルの黒背景やヘッダーなど、キャプチャの邪魔になるものを強制非表示
-                    const hideTargets = clonedDoc.querySelectorAll('body > *:not(#previewModal), #previewModal > *:not(.modal-content), .modal-content > *:not(#previewContent), .app-container');
-                    hideTargets.forEach(el => {
-                        if (el && el.style) el.style.display = 'none';
-                    });
-
-                    // 親階層のスクロール等による見切れ・白紙化を防ぐため一律リセット＆強制表示
-                    let parent = target.parentElement;
-                    while (parent && parent !== clonedDoc.body) {
-                        parent.style.margin = '0';
-                        parent.style.padding = '0';
-                        parent.style.position = 'static';
-                        parent.style.display = 'block'; // 強制的にブロック要素化
-                        parent.style.opacity = '1';     // 強制的に不透明化
-                        parent.style.visibility = 'visible'; // 強制的に可視化
-                        parent.style.height = 'auto';
-                        parent.style.maxHeight = 'none';
-                        parent.style.overflow = 'visible';
-                        parent = parent.parentElement;
-                    }
-                }
+                scrollY: 0
             },
-            jsPDF: {
-                unit: 'mm',
-                format: 'a4',
-                orientation: 'portrait'
-            },
-            pagebreak: {
-                mode: ['avoid-all', 'css', 'legacy']
-            }
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
         };
 
         // PDFを生成してダウンロード
-        html2pdf().set(opt).from(element).save().then(() => {
+        html2pdf().set(opt).from(renderContainer).save().then(() => {
             console.log('PDF保存完了:', filename);
+            renderContainer.remove(); // 一時コンテナを削除
 
             if (userName) {
                 alert(`PDF保存しました！\n\n📁 ファイル名: ${filename}.pdf\n\n💡 ヒント: ダウンロードフォルダから\n「車検見積りデータ」フォルダに移動すると整理しやすくなります。`);
             }
         }).catch(err => {
             console.error('PDF生成エラー:', err);
+            renderContainer.remove(); // 一時コンテナを削除
             alert('PDF生成に失敗しました。ブラウザの印刷機能をお試しください。');
-            // フォールバック: 印刷ダイアログを開く
             window.print();
         });
 
