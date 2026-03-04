@@ -144,9 +144,8 @@
             /* プレビューモーダルとそのコンテンツだけを印刷対象にする */
             #previewModal {
                 display: block !important;
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
+                position: static !important;
+                /* 絶対配置にするとブラウザ印刷時に改ページされず2枚目以降が白紙になるため修正 */
                 width: 100% !important;
                 height: auto !important;
                 background: white !important;
