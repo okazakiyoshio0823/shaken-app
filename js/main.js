@@ -994,7 +994,7 @@ function generatePreviewHtml() {
     html += `
     <div class="print-page" style="display: flex; flex-direction: column; height: 1122px;">
         <div class="header-section">
-            <div class="company-info" style="text-align: right; margin-left: auto;">
+            <div class="company-info" style="text-align: center; margin: 0 auto;">
                 ${logoHtml}<br>
                 <div style="font-size: 1.2em; font-weight: bold;">${escapeHtml(companyName)}</div>
                 <div style="font-size: 0.9em;">${escapeHtml(companyAddress)}</div>
@@ -1003,7 +1003,7 @@ function generatePreviewHtml() {
         </div>
 
         <div class="page-title">御 見 積 書</div>
-        <div style="text-align: right; margin-bottom: 20px;">発行日: ${dateStr}</div>
+        <div style="text-align: right; margin-bottom: 20px; padding-right: 20px;">発行日: ${dateStr}</div>
 
         <div style="margin-top: 20px;">
             <div class="info-box" style="width: 48%; display: inline-block; vertical-align: top; margin-right: 2%;">
@@ -1167,10 +1167,10 @@ function generatePreviewHtml() {
 
         html += `
         <div class="print-page" style="display: flex; flex-direction: column; height: 1122px;">
-            <div style="margin-bottom: 10px; text-align:right; font-size:0.8em; color:#666;">
+            <div style="margin-bottom: 10px; text-align:right; font-size:0.8em; color:#666; padding-right: 20px;">
                  No. ${escapeHtml(plate)} / ${p + 1}
             </div>
-            <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px;">整備明細 (${p + 1}/${totalPages})</h3>
+            <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; text-align: center;">整備明細 (${p + 1}/${totalPages})</h3>
             
             <table class="preview-table" style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em; flex-grow: 1; margin-bottom: 15px;">
                 <thead style="background: #f0f0f0;">
@@ -1187,7 +1187,7 @@ function generatePreviewHtml() {
             </table>
             
             ${p === totalPages - 1 ?
-                `<div style="margin-top: auto; text-align: right; font-weight: bold; font-size: 1.1em; border-top: 1px solid #333; padding-top: 5px; padding-bottom: 10px;">整備小計: ¥${maint.toLocaleString()}</div>`
+                `<div style="margin-top: auto; text-align: right; font-weight: bold; font-size: 1.1em; border-top: 1px solid #333; padding-top: 5px; padding-bottom: 10px; padding-right: 20px;">整備小計: ¥${maint.toLocaleString()}</div>`
                 : ''}
         </div>`;
     }
