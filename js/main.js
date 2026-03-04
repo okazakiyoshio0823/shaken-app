@@ -1166,7 +1166,7 @@ function generatePreviewHtml() {
         }
 
         html += `
-        <div class="print-page">
+        <div class="print-page" style="display: flex; flex-direction: column; height: 1123px;">
             <div style="margin-bottom: 10px; text-align:right; font-size:0.8em; color:#666;">
                  No. ${escapeHtml(plate)} / ${p + 1}
             </div>
@@ -1185,8 +1185,9 @@ function generatePreviewHtml() {
                     ${rowsHtml}
                 </tbody>
             </table>
+            
             ${p === totalPages - 1 ?
-                `<div style="text-align: right; margin-top: 10px; font-weight: bold; font-size: 1.1em; border-top: 1px solid #333; padding-top: 5px;">整備小計: ¥${maint.toLocaleString()}</div>`
+                `<div style="margin-top: auto; text-align: right; font-weight: bold; font-size: 1.1em; border-top: 1px solid #333; padding-top: 5px; padding-bottom: 10px;">整備小計: ¥${maint.toLocaleString()}</div>`
                 : ''}
         </div>`;
     }
