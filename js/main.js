@@ -1049,7 +1049,7 @@ function generatePreviewHtml() {
             </div>`;
         })()}
 
-        // Diagram & Memo Section
+        <!-- Diagram & Memo Section -->
         <div style="margin-top:15px; height: 300px; margin-bottom: 30px;">
             <!-- Vehicle Diagram -->
             <div style="width: 48%; display: inline-block; vertical-align: top; margin-right: 2%; border:1px solid #ccc; border-radius:4px; padding:5px; box-sizing: border-box; height: 100%;">

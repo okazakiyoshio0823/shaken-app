@@ -26,7 +26,7 @@ function generatePDF() {
 
         // html2pdfのオプション（ズレのない完全フィット設定）
         const opt = {
-            margin: [0, 10, 0, 10], // 上下0、左右10mmのマージンを設定して、PDFの「ど真ん中」に配置して左見切れを防ぐ
+            margin: 0, // A4マッピング時の右端切れを防ぐため0に設定し、CSSの内側余白(padding)として全体を描画させる
             filename: filename + '.pdf',
             image: { type: 'jpeg', quality: 1.0 }, // 高画質化
             html2canvas: {
