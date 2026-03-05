@@ -410,6 +410,11 @@ function validateLegalFees() {
         if (!confirm("⚠️【確認】\n\n整備内容に「24ヶ月点検」等が含まれていますが、法定費用（重量税・自賠責・印紙代）が0円です。\nこのまま続行しますか？")) {
             return false;
         }
+    } else if (!has24MonthInspection && totalLegal > 0) {
+        // 逆パターン：点検項目がないのに法定費用が入力されている場合
+        if (!confirm("⚠️【確認】\n\n整備内容に「24ヶ月点検」等が含まれていませんが、法定費用（重量税・自賠責・印紙代）が入力されています。\nこのまま続行しますか？\n\n※法定費用を0円に戻す場合は「キャンセル」を押し、青枠右上の「🗑️ クリア」ボタンが便利です。")) {
+            return false;
+        }
     } else if (shakenType !== 'none' && totalLegal === 0) {
         if (!confirm('車検区分が「車検なし」以外に設定されていますが、法定費用（重量税、自賠責、印紙代）が0円です。\nこのまま続行しますか？')) {
             return false;
