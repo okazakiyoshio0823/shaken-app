@@ -1,5 +1,7 @@
 // PDF出力
 function generatePDF() {
+    if (typeof validateLegalFees === 'function' && !validateLegalFees()) return; // 法定費用のバリデーション
+
     try {
         // 使用者名を取得
         const userName = document.getElementById('userName')?.value || '';

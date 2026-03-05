@@ -796,7 +796,11 @@
 
         <!-- 法定費用 -->
         <div class="card">
-            <div class="card-header">📋 法定費用・諸費用</div>
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>📋 法定費用・諸費用</span>
+                <button type="button" class="btn btn-danger btn-sm" onclick="clearLegalFees()"
+                    style="padding: 2px 8px; font-size: 0.8em;">🗑️ クリア</button>
+            </div>
             <div class="card-body">
                 <table class="legal-table">
                     <tr>

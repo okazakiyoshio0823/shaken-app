@@ -2,6 +2,7 @@
 // メインアプリケーションロジック
 let maintenanceItems = [];
 let currentLegalFees = { weightTax: 0, jibaiseki: 0, stamp: 0 };
+
 async function promptChangePassword() {
     const currentPass = prompt("現在のパスワードを入力してください:");
     if (!currentPass) return;
@@ -148,6 +149,8 @@ function saveCompanyInfo() {
 
 // 顧客データ保存
 async function saveCustomerData() {
+    if (!validateLegalFees()) return; // 法定費用バリデーション
+
     const plate = getPlateNumber();
     if (plate === '-') { alert('ナンバープレートを入力してください'); return; }
 
@@ -369,6 +372,50 @@ async function deleteCustomerData(id) {
 
 function searchCustomers() {
     renderCustomerList(document.getElementById('customerSearch').value);
+}
+
+// 法定費用の手動リセット（クリアボタン用）
+function clearLegalFees() {
+    if (!confirm("法定費用の入力項目をすべて 0 にリセットし、一般整備モード（車検区分: なし）に切り替えます。\nよろしいですか？")) return;
+
+    // 車検区分を「車検なし」に切り替え
+    document.getElementById('shakenType').value = 'none';
+
+    // すべて0円にセットする
+    document.getElementById('weightTaxInput').value = '0';
+    document.getElementById('jibaisekiInput').value = '0';
+    document.getElementById('stampInput').value = '0';
+    document.getElementById('reservationFee').value = '0';
+    document.getElementById('agencyFee').value = '0';
+
+    updateShakenType();     // UI表示の更新適用
+    onManualLegalFeeChange(); // 手動変更として各変数に0を反映
+    calculateTotals();      // 合計金額の再計算
+}
+
+// 法定費用のバリデーション
+function validateLegalFees() {
+    const shakenType = document.getElementById('shakenType').value;
+    const weightTax = parseInt(document.getElementById('weightTaxInput').value) || 0;
+    const jibaiseki = parseInt(document.getElementById('jibaisekiInput').value) || 0;
+    const stamp = parseInt(document.getElementById('stampInput').value) || 0;
+    const totalLegal = weightTax + jibaiseki + stamp;
+
+    // 24ヶ月点検が含まれるかチェック
+    const has24MonthInspection = maintenanceItems.some(item =>
+        item.name && item.name.includes('24') && item.name.includes('点検')
+    );
+
+    if (has24MonthInspection && totalLegal === 0) {
+        if (!confirm("⚠️【確認】\n\n整備内容に「24ヶ月点検」等が含まれていますが、法定費用（重量税・自賠責・印紙代）が0円です。\nこのまま続行しますか？")) {
+            return false;
+        }
+    } else if (shakenType !== 'none' && totalLegal === 0) {
+        if (!confirm('車検区分が「車検なし」以外に設定されていますが、法定費用（重量税、自賠責、印紙代）が0円です。\nこのまま続行しますか？')) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // 車種選択
@@ -901,6 +948,8 @@ function clearForm() {
 
 // プレビュー
 function showPreview() {
+    if (!validateLegalFees()) return; // 法定費用バリデーション
+
     document.getElementById('previewContent').innerHTML = generatePreviewHtml();
     document.getElementById('previewModal').classList.add('active');
 
@@ -2349,6 +2398,8 @@ function getCurrentEstimateData() {
 
 // 見積を履歴に保存
 function saveEstimateToHistory() {
+    if (typeof validateLegalFees === 'function' && !validateLegalFees()) return; // 法定費用バリデーション
+
     const plate = getPlateNumber();
     if (plate === '-') {
         alert('ナンバープレートを入力してください');
