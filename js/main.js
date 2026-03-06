@@ -374,9 +374,22 @@ function searchCustomers() {
     renderCustomerList(document.getElementById('customerSearch').value);
 }
 
+// バックアップ用変数（「元に戻す」機能のため）
+window.backupLegalFeesData = null;
+
 // 法定費用の手動リセット（クリアボタン用）
 function clearLegalFees() {
     if (!confirm("法定費用の入力項目をすべて 0 にリセットし、一般整備モード（車検区分: なし）に切り替えます。\nよろしいですか？")) return;
+
+    // 現在の値をバックアップ
+    window.backupLegalFeesData = {
+        shakenType: document.getElementById('shakenType').value,
+        weightTax: document.getElementById('weightTaxInput').value,
+        jibaiseki: document.getElementById('jibaisekiInput').value,
+        stamp: document.getElementById('stampInput').value,
+        reservationFee: document.getElementById('reservationFee').value,
+        agencyFee: document.getElementById('agencyFee').value
+    };
 
     // 車検区分を「車検なし」に切り替え
     document.getElementById('shakenType').value = 'none';
@@ -391,6 +404,34 @@ function clearLegalFees() {
     updateShakenType();     // UI表示の更新適用
     onManualLegalFeeChange(); // 手動変更として各変数に0を反映
     calculateTotals();      // 合計金額の再計算
+
+    // 「元に戻す」ボタンを表示する
+    const undoBtn = document.getElementById('undoLegalFeesBtn');
+    if (undoBtn) undoBtn.style.display = 'inline-block';
+}
+
+// 法定費用のクリアを取り消す（元に戻すボタン用）
+function undoClearLegalFees() {
+    if (!window.backupLegalFeesData) return;
+
+    // バックアップから復元
+    document.getElementById('shakenType').value = window.backupLegalFeesData.shakenType;
+    document.getElementById('weightTaxInput').value = window.backupLegalFeesData.weightTax;
+    document.getElementById('jibaisekiInput').value = window.backupLegalFeesData.jibaiseki;
+    document.getElementById('stampInput').value = window.backupLegalFeesData.stamp;
+    document.getElementById('reservationFee').value = window.backupLegalFeesData.reservationFee;
+    document.getElementById('agencyFee').value = window.backupLegalFeesData.agencyFee;
+
+    // バックアップデータをクリア
+    window.backupLegalFeesData = null;
+
+    updateShakenType();
+    onManualLegalFeeChange();
+    calculateTotals();
+
+    // ボタンを再度非表示にする
+    const undoBtn = document.getElementById('undoLegalFeesBtn');
+    if (undoBtn) undoBtn.style.display = 'none';
 }
 
 // 法定費用のバリデーション

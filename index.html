@@ -798,8 +798,13 @@
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <span>📋 法定費用・諸費用</span>
-                <button type="button" class="btn btn-danger btn-sm" onclick="clearLegalFees()"
-                    style="padding: 2px 8px; font-size: 0.8em;">🗑️ クリア</button>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" id="undoLegalFeesBtn" class="btn btn-warning btn-sm"
+                        onclick="undoClearLegalFees()" style="padding: 2px 8px; font-size: 0.8em; display: none;">↩️
+                        元に戻す</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="clearLegalFees()"
+                        style="padding: 2px 8px; font-size: 0.8em;">🗑️ クリア</button>
+                </div>
             </div>
             <div class="card-body">
                 <table class="legal-table">
