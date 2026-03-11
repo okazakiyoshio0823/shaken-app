@@ -204,8 +204,10 @@ const api = {
                 localStorage.removeItem('authToken');
                 sessionStorage.clear();
             } catch (e) { }
-            // 履歴に残らないように置換し、キャッシュ回避パラメータを付与
-            window.location.replace('login.html?logout=true&t=' + new Date().getTime());
+            
+            // 現在のURLからディレクトリパスを取得してlogin.htmlへ遷移する（GitHub Pages等のサブディレクトリ運用対応）
+            const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+            window.location.replace(basePath + '/login.html?logout=true&t=' + new Date().getTime());
         }
     },
 
@@ -224,7 +226,8 @@ const api = {
             throw new Error(data.message || 'Password update failed');
         }
         return await res.json();
-    }
+    },
+
     // LINEログイン
     async lineLogin(idToken) {
         const res = await fetch(`${API_BASE_URL}/auth/line-login`, {
