@@ -38,12 +38,34 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/customers', require('./routes/customerRoutes'));
 
 // Database Sync & Server Start
-sequelize.sync().then(() => {
+sequelize.sync().then(async () => {
     console.log('Database synced');
+
+    // Auto-seed admin user if not present
+    try {
+        const bcrypt = require('bcrypt');
+        const User = require('./models/User');
+        const existing = await User.findOne({ where: { username: 'admin' } });
+        if (!existing) {
+            const hash = await bcrypt.hash('admin', 10);
+            await User.create({
+                username: 'admin',
+                password_hash: hash,
+                email: 'admin@example.com',
+                role: 'admin',
+                is_initial_password: true
+            });
+            console.log('✅ Admin user created');
+        } else {
+            console.log('Admin user already exists');
+        }
+    } catch (seedErr) {
+        console.error('Seed error (non-fatal):', seedErr.message);
+    }
+
     app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
     });
 }).catch(err => {
     console.error('Unable to connect to the database:', err);
 });
-
