@@ -260,15 +260,18 @@ exports.changeInitialPassword = async (req, res) => {
         if (user.email) {
             try {
                 const emailService = require('../services/emailService');
-                await emailService.sendPasswordChangeConfirmation(
+                // Do not await email sending to avoid hanging the API response
+                emailService.sendPasswordChangeConfirmation(
                     user.email,
                     oldUsername,
                     user.username
-                );
-                console.log(`[EMAIL] Password change confirmation sent to ${user.email}`);
+                ).catch(emailError => {
+                    console.error('[EMAIL] Failed to send confirmation (background):', emailError.message);
+                });
+                console.log(`[EMAIL] Password change confirmation job started for ${user.email}`);
             } catch (emailError) {
-                console.error('[EMAIL] Failed to send confirmation:', emailError.message);
-                // メール送信失敗してもパスワード変更は成功とする
+                console.error('[EMAIL] Failed to initialize email sending:', emailError.message);
+                // メール設定エラーでもパスワード変更は成功とする
             }
         }
 

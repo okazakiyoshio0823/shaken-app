@@ -11,7 +11,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: EMAIL_MODE
-        value: production
+        value: development
       - key: NODE_VERSION
         value: 20
       - key: JWT_SECRET
