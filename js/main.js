@@ -670,7 +670,7 @@ function addItemToTable(name, qty, parts, wage, isFluid = false) {
 
 function renderMaintenanceTable() {
     const tbody = document.getElementById('maintenanceItems');
-    tbody.innerHTML = maintenanceItems.map(item => {
+    tbody.innerHTML = maintenanceItems.map((item, index) => {
         // メイン項目行
         const partsLabel = item.isFluid ? '鉱油類' : '部品';
         const discount = item.discount || { parts: 0, wage: 0 };
@@ -701,8 +701,16 @@ function renderMaintenanceTable() {
             </td>
             <td class="text-right">¥${item.taxIncludedPrice.toLocaleString()}</td>
             <td>
-                <button class="btn-add-sub" onclick="addSubItem(${item.id})" title="部品明細を追加">＋</button>
-                <button class="btn-remove" onclick="removeItem(${item.id})">×</button>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; gap: 4px;">
+                        <button class="btn-add-sub" onclick="addSubItem(${item.id})" title="部品明細を追加">＋</button>
+                        <button class="btn-remove" onclick="removeItem(${item.id})" title="削除">×</button>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="btn-move" onclick="moveItemUp(${item.id})" title="上へ移動" ${index === 0 ? 'disabled' : ''}>↑</button>
+                        <button class="btn-move" onclick="moveItemDown(${item.id})" title="下へ移動" ${index === maintenanceItems.length - 1 ? 'disabled' : ''}>↓</button>
+                    </div>
+                </div>
             </td>
         </tr>`;
 
@@ -861,6 +869,28 @@ function removeItem(id) {
     maintenanceItems = maintenanceItems.filter(i => i.id !== id);
     renderMaintenanceTable();
     calculateTotals();
+}
+
+function moveItemUp(id) {
+    const idx = maintenanceItems.findIndex(i => i.id === id);
+    if (idx > 0) {
+        const temp = maintenanceItems[idx];
+        maintenanceItems[idx] = maintenanceItems[idx - 1];
+        maintenanceItems[idx - 1] = temp;
+        renderMaintenanceTable();
+        calculateTotals();
+    }
+}
+
+function moveItemDown(id) {
+    const idx = maintenanceItems.findIndex(i => i.id === id);
+    if (idx !== -1 && idx < maintenanceItems.length - 1) {
+        const temp = maintenanceItems[idx];
+        maintenanceItems[idx] = maintenanceItems[idx + 1];
+        maintenanceItems[idx + 1] = temp;
+        renderMaintenanceTable();
+        calculateTotals();
+    }
 }
 
 // 項目ごとの値引き率を更新
