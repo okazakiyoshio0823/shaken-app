@@ -195,6 +195,7 @@ async function saveCustomerData() {
         factoryType: document.getElementById('factoryType').value,
         reservationFee: document.getElementById('reservationFee').value,
         agencyFee: document.getElementById('agencyFee').value,
+        fractionAdjustment: document.getElementById('fractionAdjustment') ? document.getElementById('fractionAdjustment').value : '0',
         // 写真URLの保存
         photoUrls: window.currentUploadedPhotos || []
     };
@@ -331,6 +332,9 @@ async function loadCustomerData(id) {
     document.getElementById('factoryType').value = c.factoryType || 'designated';
     document.getElementById('reservationFee').value = c.reservationFee || '';
     document.getElementById('agencyFee').value = c.agencyFee || '';
+    if (document.getElementById('fractionAdjustment')) {
+        document.getElementById('fractionAdjustment').value = c.fractionAdjustment || '0';
+    }
 
     // 整備項目の復元
     if (c.maintenanceItems && Array.isArray(c.maintenanceItems)) {
@@ -911,7 +915,12 @@ function calculateTotals() {
     const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
     const agency = parseInt(document.getElementById('agencyFee').value) || 0;
     const legal = currentLegalFees.weightTax + currentLegalFees.jibaiseki + currentLegalFees.stamp + reserve + agency;
-    const grand = maint + legal;
+    
+    // 端数調整の取得
+    const fractionAdjInput = document.getElementById('fractionAdjustment');
+    const fractionAdj = (fractionAdjInput && parseInt(fractionAdjInput.value)) ? parseInt(fractionAdjInput.value) : 0;
+    
+    const grand = maint + legal - fractionAdj;
 
     document.getElementById('maintenanceSubtotal').textContent = `¥${maint.toLocaleString()}`;
     document.getElementById('legalFeesSubtotal').textContent = `¥${legal.toLocaleString()}`;
@@ -921,6 +930,24 @@ function calculateTotals() {
     window.totalDiscountAmount = totalDiscount;
     // 合計値引き額を保存（プレビューで使用）
     window.totalDiscountAmount = totalDiscount;
+}
+
+// 端数自動調整機能
+function autoAdjustFraction(unit) {
+    const maint = maintenanceItems.reduce((s, i) => s + i.taxIncludedPrice, 0);
+    const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
+    const agency = parseInt(document.getElementById('agencyFee').value) || 0;
+    const legal = currentLegalFees.weightTax + currentLegalFees.jibaiseki + currentLegalFees.stamp + reserve + agency;
+    const totalBeforeAdjustment = maint + legal;
+    
+    if (totalBeforeAdjustment === 0) return;
+    
+    const fraction = totalBeforeAdjustment % unit;
+    const fractionAdjInput = document.getElementById('fractionAdjustment');
+    if (fractionAdjInput) {
+        fractionAdjInput.value = fraction;
+        calculateTotals();
+    }
 }
 
 // -----------------------------------------------------
@@ -982,7 +1009,7 @@ function clearForm() {
         'plateRegion', 'plateClass', 'plateHiragana', 'plateSerial',
         'carMaker', 'carName', 'carModel', 'chassisNumber', 'typeDesignationNumber', 'categoryClassificationNumber', 'firstRegistration',
         'shakenExpiryDate', 'mileage', 'notes', 'customerMemo',
-        'reservationFee', 'agencyFee', 'newItemName', 'newItemQty', 'newItemPrice'
+        'reservationFee', 'agencyFee', 'fractionAdjustment', 'newItemName', 'newItemQty', 'newItemPrice'
     ];
 
     ids.forEach(id => {
@@ -1339,7 +1366,15 @@ function generatePreviewHtml() {
 
             <div style="width: 48%; display: inline-block; vertical-align: top;">
                  <h4 style="margin-top: 0; background: #eee; padding: 5px; font-size:1em;">お支払い金額</h4>
-                 <div style="font-size: 2.2em; font-weight: bold; text-align: right; margin: 20px 0; border-bottom: 2px solid #333;">
+                 ${(() => {
+                     const fractionAdjInput = document.getElementById('fractionAdjustment');
+                     const fractionAdj = fractionAdjInput ? parseInt(fractionAdjInput.value) || 0 : 0;
+                     if (fractionAdj > 0) {
+                         return `<div style="text-align:right; font-size:1em; margin-top:10px; color:#c0392b;">端数調整（値引）: -¥${fractionAdj.toLocaleString()}</div>`;
+                     }
+                     return '';
+                 })()}
+                 <div style="font-size: 2.2em; font-weight: bold; text-align: right; margin: ${document.getElementById('fractionAdjustment') && (parseInt(document.getElementById('fractionAdjustment').value) || 0) > 0 ? '5px' : '20px'} 0 20px 0; border-bottom: 2px solid #333;">
                     ¥${grand.toLocaleString()}
                  </div>
                  <div style="text-align:right; font-size:0.9em; color:#666;">(内消費税等: ¥${(Math.floor(maint - maint / 1.1)).toLocaleString()})</div>

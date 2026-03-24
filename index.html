@@ -885,6 +885,15 @@
                     <span>法定費用・諸費用 小計</span>
                     <span id="legalFeesSubtotal">¥0</span>
                 </div>
+                <div class="summary-row" style="color: #c62828;">
+                    <span style="display: flex; align-items: center;">端数調整（値引） 
+                        <button type="button" class="btn btn-sm btn-outline" style="margin-left:8px; padding:2px 6px; font-size:0.75em;" onclick="autoAdjustFraction(100)">百円単位</button>
+                        <button type="button" class="btn btn-sm btn-outline" style="margin-left:4px; padding:2px 6px; font-size:0.75em;" onclick="autoAdjustFraction(1000)">千円単位</button>
+                    </span>
+                    <span>
+                        -¥<input type="number" class="form-control" id="fractionAdjustment" value="0" min="0" style="width: 80px; display: inline-block; text-align: right; margin-left: 4px; padding: 4px;" oninput="calculateTotals()">
+                    </span>
+                </div>
                 <div class="summary-row total">
                     <span>お支払い総額</span>
                     <span id="grandTotal">¥0</span>
