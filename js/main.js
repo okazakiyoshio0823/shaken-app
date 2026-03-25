@@ -40,6 +40,30 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLegalFees();
     calculateTotals();
     initializeEnterKeyNavigation();
+
+    // SortableJSの初期化
+    const tbody = document.getElementById('maintenanceItems');
+    if (tbody && typeof Sortable !== 'undefined') {
+        new Sortable(tbody, {
+            animation: 150,
+            handle: '.drag-handle',
+            draggable: '.main-row',
+            onEnd: function (evt) {
+                if (evt.oldIndex === evt.newIndex) return;
+
+                // DOM上の.main-rowの順序を取得（サブアイテムの影響を避けるためDOMの並び順を使用）
+                const rows = Array.from(tbody.querySelectorAll('.main-row'));
+                const newOrderIds = rows.map(row => Number(row.dataset.id));
+
+                // maintenanceItems配列を新しい順序に並び替え
+                const oldItemsMap = new Map(maintenanceItems.map(i => [i.id, i]));
+                maintenanceItems = newOrderIds.map(id => oldItemsMap.get(id)).filter(Boolean);
+
+                renderMaintenanceTable();
+                calculateTotals();
+            }
+        });
+    }
 });
 
 // Enterキーで次の入力欄に移動する機能（Shift+Enterで前へ戻る）
@@ -681,8 +705,11 @@ function renderMaintenanceTable() {
         const discountAmt = item.discountAmount || { parts: 0, wage: 0, total: 0 };
 
         const mainRow = `
-        <tr class="main-row">
-            <td>${escapeHtml(item.name)}</td>
+        <tr class="main-row" data-id="${item.id}">
+            <td style="display: flex; align-items: center; gap: 8px; border-bottom: none;">
+                <span class="drag-handle" style="cursor: grab; color: #999; font-size: 1.2em; user-select: none;" title="ドラッグ＆ドロップで移動">☰</span>
+                <span style="flex: 1; word-break: break-all;">${escapeHtml(item.name)}</span>
+            </td>
             <td class="text-center"><input type="number" class="form-control qty" value="${item.qty}" min="1" onchange="updateItemQty(${item.id}, this.value)"></td>
             <td class="text-right">
                 <div style="display: flex; flex-direction: column; gap: 5px;">
