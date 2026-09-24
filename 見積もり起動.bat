@@ -49,7 +49,17 @@ exit /b 1
 :ready
 echo [3/3] ブラウザで見積画面を開きます...
 REM ログイン済みならそのまま見積画面。未ログインなら index.html が login.html へ自動転送
-start "" "%~dp0index.html"
+REM 見積データはブラウザごとに別保存になるため、必ず同じブラウザ(Edge)で開く
+set "EDGE=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
+if not exist "%EDGE%" set "EDGE=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
+
+if exist "%EDGE%" (
+    start "" "%EDGE%" "%~dp0index.html"
+) else (
+    echo [警告] Edge が見つからないため既定のブラウザで開きます。
+    echo        別のブラウザで開くと、保存済みの見積が表示されません。
+    start "" "%~dp0index.html"
+)
 
 echo.
 echo ----------------------------------------
