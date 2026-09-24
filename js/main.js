@@ -2562,7 +2562,6 @@ function saveEstimateToHistory() {
     if (savedEstimates.length > 100) savedEstimates.pop(); // 最大100件
 
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
-    localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
 
     // 裏側でサーバーにも控えを取る（サーバーが起動していなければ何もしない）
     if (typeof autoBackupAfterSave === 'function') autoBackupAfterSave();
