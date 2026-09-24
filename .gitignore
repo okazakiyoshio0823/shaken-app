@@ -47,3 +47,6 @@ out.txt
 err.txt
 resp*.txt
 *_output.txt
+
+# バックアップ（顧客情報を含むためリポジトリには入れない）
+server/backups/

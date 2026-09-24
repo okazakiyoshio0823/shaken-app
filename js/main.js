@@ -2563,6 +2563,10 @@ function saveEstimateToHistory() {
 
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
+
+    // 裏側でサーバーにも控えを取る（サーバーが起動していなければ何もしない）
+    if (typeof autoBackupAfterSave === 'function') autoBackupAfterSave();
+
     alert('✅ 見積を履歴に保存しました');
 }
 

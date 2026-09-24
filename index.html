@@ -397,6 +397,11 @@
     </script>
 
     <div class="app-container">
+        <!-- バックアップ催促バー（7日以上バックアップしていない場合のみ表示） -->
+        <div id="backupReminder" class="no-print" style="display:none;background:#fff4e5;border:1px solid #ffb74d;border-radius:6px;padding:10px 14px;margin-bottom:12px;">
+            ⚠️ しばらくバックアップしていません。データはこのブラウザ内にのみ保存されています。
+            <button class="btn btn-sm btn-success" style="margin-left:8px;" onclick="showBackupModal()">今すぐバックアップ</button>
+        </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <h1>🔧 Mechaniq - メカニーク</h1>
@@ -416,6 +421,7 @@
             <button type="button" class="btn btn-secondary" onclick="showTemplateModal()">📋 テンプレート</button>
             <button type="button" class="btn btn-success" onclick="saveEstimateToHistory()">💾 見積を保存</button>
             <button type="button" class="btn btn-success" onclick="showJsonImportModal()">📥 車検証JSON</button>
+            <button type="button" class="btn btn-outline" onclick="showBackupModal()">🗄️ バックアップ</button>
             <select class="form-control" id="documentType" title="書類種別">
                 <option value="estimate">📝 見積書</option>
                 <option value="invoice">📄 請求書</option>
@@ -1231,6 +1237,47 @@
         </div>
     </div>
 
+    <!-- バックアップ -->
+    <div class="modal-overlay" id="backupModal">
+        <div class="modal-content" style="max-width:640px;">
+            <div class="modal-header">
+                <h2>🗄️ バックアップ</h2>
+                <button class="modal-close" onclick="closeBackupModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="background:#f6f8fa;border-radius:6px;padding:12px;margin-bottom:16px;">
+                    <div style="font-weight:bold;margin-bottom:4px;">現在のデータ</div>
+                    <div id="backupCountText" style="margin-bottom:6px;">-</div>
+                    <div id="backupStatusText" style="font-size:0.9em;">-</div>
+                </div>
+
+                <div style="font-weight:bold;margin-bottom:8px;">① ファイルに保存する（おすすめ）</div>
+                <p style="font-size:0.9em;color:#666;margin:0 0 8px;">
+                    見積・顧客・テンプレートをまとめて1つのファイルに書き出します。
+                    USBやクラウドに置いておけば、PCが壊れても復旧できます。
+                </p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+                    <button class="btn btn-success" onclick="exportBackupToFile()">📥 ファイルに保存</button>
+                    <button class="btn btn-outline" onclick="importBackupFromFile()">📤 ファイルから復元</button>
+                </div>
+
+                <div style="font-weight:bold;margin-bottom:8px;">② サーバーの自動バックアップ</div>
+                <p style="font-size:0.9em;color:#666;margin:0 0 8px;">
+                    見積を保存するたびに、このPCの server/backups フォルダへ自動で控えを取ります。
+                    OneDriveフォルダ内にあるため、そのままクラウドにも同期されます。
+                </p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                    <button class="btn btn-primary" onclick="backupToServer(false)">☁️ 今すぐサーバーに保存</button>
+                    <button class="btn btn-outline" onclick="loadServerBackups()">🔄 一覧を更新</button>
+                </div>
+                <div id="serverBackupList" style="max-height:220px;overflow-y:auto;border:1px solid #eee;border-radius:6px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeBackupModal()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -1242,6 +1289,7 @@
     <script src="js/wareki.js"></script>
     <script src="js/upload_client.js"></script>
     <script src="js/pdf.js"></script>
+    <script src="js/backup.js"></script>
 </body>
 
 </html>< ! - -   r e l o a d   t r i g g e r   - - > 

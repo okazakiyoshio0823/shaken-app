@@ -18,7 +18,7 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" } // Allow images to be loaded
 }));
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // バックアップJSONが既定の100kbを超えるため引き上げ
 app.use(express.urlencoded({ extended: true }));
 
 // Serve Uploads securely
@@ -36,6 +36,7 @@ app.use('/api/', limiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/customers', require('./routes/customerRoutes'));
+app.use('/api/backup', require('./routes/backupRoutes'));
 
 // Start server FIRST so Render always sees an open port
 app.listen(PORT, () => {
