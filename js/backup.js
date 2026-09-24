@@ -291,22 +291,28 @@ function closeBackupModal() {
     document.getElementById('backupModal').classList.remove('active');
 }
 
-// 見積を保存したタイミングで、裏側でサーバーにも退避しておく
-function autoBackupAfterSave() {
-    backupToServer(true);
+
+// 催促バーを閉じる。閉じたら1週間は出さない
+const REMINDER_DISMISSED_KEY = 'shaken_reminder_dismissed';
+
+function dismissBackupReminder() {
+    localStorage.setItem(REMINDER_DISMISSED_KEY, new Date().toISOString());
+    const el = document.getElementById('backupReminder');
+    if (el) el.classList.remove('show');
 }
 
 // 起動時：最終バックアップから7日以上経っていたら画面上部で知らせる
 window.addEventListener('load', () => {
     updateBackupStatus();
 
-    const last = localStorage.getItem(BACKUP_LAST_KEY);
-    const days = last ? Math.floor((Date.now() - new Date(last).getTime()) / 86400000) : 999;
+    const daysSince = (iso) => iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : 999;
 
-    if (days >= 7) {
-        setTimeout(() => {
-            const el = document.getElementById('backupReminder');
-            if (el) el.style.display = 'block';
-        }, 1500);
-    }
+    // 閉じてから1週間経っていなければ出さない
+    if (daysSince(localStorage.getItem(REMINDER_DISMISSED_KEY)) < 7) return;
+    if (daysSince(localStorage.getItem(BACKUP_LAST_KEY)) < 7) return;
+
+    setTimeout(() => {
+        const el = document.getElementById('backupReminder');
+        if (el) el.classList.add('show');
+    }, 1500);
 });

@@ -406,38 +406,37 @@
 
     <div class="app-container">
         <!-- バックアップ催促バー（7日以上バックアップしていない場合のみ表示） -->
-        <div id="backupReminder" class="no-print" style="display:none;background:#fff4e5;border:1px solid #ffb74d;border-radius:6px;padding:10px 14px;margin-bottom:12px;">
-            ⚠️ しばらくバックアップしていません。データはこのブラウザ内にのみ保存されています。
-            <button class="btn btn-sm btn-success" style="margin-left:8px;" onclick="showBackupModal()">今すぐバックアップ</button>
+        <div id="backupReminder" class="no-print backup-reminder">
+            <span class="backup-reminder-text">⚠️ しばらくバックアップしていません。データはこのブラウザ内にのみ保存されています。</span>
+            <button class="btn btn-sm btn-success" onclick="showBackupModal()">今すぐバックアップ</button>
+            <button type="button" class="backup-reminder-close" onclick="dismissBackupReminder()"
+                title="閉じる（1週間表示しません）" aria-label="閉じる">×</button>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
+        <header class="app-header-bar">
             <div>
                 <h1>🔧 Mechaniq - メカニーク</h1>
                 <p>車検見積をスマートに作成</p>
             </div>
-            <div>
-                <button type="button" class="btn btn-sm btn-outline"
-                    style="color:white; border-color:white; background:transparent;"
+            <div class="app-header-actions">
+                <button type="button" class="btn btn-sm btn-outline header-btn"
+                    onclick="showBackupModal()" title="バックアップの保存・復元">🗄️ バックアップ</button>
+                <button type="button" class="btn btn-sm btn-outline header-btn"
                     onclick="window.shakenApi.logout()">🚪 ログアウト</button>
             </div>
-        </div>
         </header>
 
         <div class="toolbar">
-            <button type="button" class="btn btn-outline" onclick="clearForm()">🗑️ クリア</button>
-            <button type="button" class="btn btn-info" onclick="showEstimateHistoryModal()">📊 履歴</button>
-            <button type="button" class="btn btn-secondary" onclick="showTemplateModal()">📋 テンプレート</button>
-            <button type="button" class="btn btn-success" onclick="saveEstimateToHistory()">💾 見積を保存</button>
-            <button type="button" class="btn btn-success" onclick="showJsonImportModal()">📥 車検証JSON</button>
-            <button type="button" class="btn btn-outline" onclick="showBackupModal()">🗄️ バックアップ</button>
-            <button type="button" class="btn btn-outline" onclick="syncEstimates(false)" title="他の端末と見積を同期します">🔄 同期</button>
-            <span id="syncStatus" style="align-self:center;font-size:0.85em;color:#888;"></span>
             <select class="form-control" id="documentType" title="書類種別">
                 <option value="estimate">📝 見積書</option>
                 <option value="invoice">📄 請求書</option>
                 <option value="receipt">🧾 領収書</option>
             </select>
-            <button type="button" class="btn btn-primary" onclick="showPreview()">👁️ プレビュー</button>
+            <button type="button" class="btn btn-success" onclick="saveEstimateToHistory()">💾 見積を保存</button>
+            <button type="button" class="btn btn-info" onclick="showEstimateHistoryModal()">📊 履歴</button>
+            <button type="button" class="btn btn-secondary" onclick="showTemplateModal()">📋 テンプレート</button>
+            <button type="button" class="btn btn-success" onclick="showJsonImportModal()">📥 車検証JSON</button>
+            <span id="syncStatus" class="sync-status" onclick="syncEstimates(false)"
+                title="クリックすると他の端末と同期します"></span>
         </div>
 
 
@@ -450,21 +449,30 @@
                     デザイン設定</button>
             </div>
             <div class="card-body">
+                <p class="inline-edit-hint">自社の情報です。直すときは項目をクリックしてください。</p>
                 <div class="form-row">
                     <div class="form-group">
                         <label>会社名</label>
-                        <input type="text" class="form-control" id="companyName" value="サンプル自動車整備"
-                            style="ime-mode: active;">
+                        <div class="inline-edit-wrap">
+                            <input type="text" class="form-control inline-edit" id="companyName"
+                                value="岡崎車輌部品株式会社" title="クリックすると編集できます" style="ime-mode: active;">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>電話番号</label>
-                        <input type="tel" class="form-control" id="companyTel" value="03-1234-5678">
+                        <div class="inline-edit-wrap">
+                            <input type="tel" class="form-control inline-edit" id="companyTel"
+                                value="0869-66-8511" title="クリックすると編集できます">
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>住所</label>
-                    <input type="text" class="form-control" id="companyAddress" value="〒123-4567 東京都○○区○○町1-2-3"
-                        style="ime-mode: active;">
+                    <div class="inline-edit-wrap">
+                        <input type="text" class="form-control inline-edit" id="companyAddress"
+                            value="〒701-4271 岡山県瀬戸内市長船町長船１２２４－１" title="クリックすると編集できます"
+                            style="ime-mode: active;">
+                    </div>
                 </div>
             </div>
         </div>
@@ -974,6 +982,12 @@
                 </div>
             </div>
         </div>
+
+        <!-- 画面下部の操作。印刷を押すとプレビューが開き、そこから印刷・PDF・LINE共有ができる -->
+        <div class="bottom-actions no-print">
+            <button type="button" class="btn btn-success btn-lg" onclick="saveEstimateToHistory()">💾 見積を保存</button>
+            <button type="button" class="btn btn-primary btn-lg" onclick="showPreview()">🖨️ 印刷・プレビュー</button>
+        </div>
     </div>
 
     <!-- モーダル: カスタムテーマ設定 -->
@@ -1209,7 +1223,7 @@
     </div>
 
     <!-- JSON インポートモーダル -->
-    <div class="modal" id="jsonImportModal">
+    <div class="modal-overlay" id="jsonImportModal">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>📥 車検証JSON読み込み</h3>

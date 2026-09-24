@@ -970,3 +970,167 @@ body {
     background: #d32f2f;
     transform: scale(1.1);
 }
+/* ============================================
+   画面の見やすさ・操作性の調整
+   ============================================ */
+
+/* 見出し。濃紺の背景に対して埋もれていたため、はっきり読める色にする */
+.app-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 0 20px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.app-header-bar h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 4px;
+    letter-spacing: 0.02em;
+}
+
+.app-header-bar p {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.95rem;
+}
+
+.app-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.header-btn {
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: transparent;
+}
+
+.header-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* バックアップ催促バー。×で閉じられる */
+.backup-reminder {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: #fff4e5;
+    border: 1px solid #ffb74d;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+
+.backup-reminder.show {
+    display: flex;
+}
+
+.backup-reminder-text {
+    flex: 1;
+    min-width: 200px;
+}
+
+.backup-reminder-close {
+    background: transparent;
+    border: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: #8a6d3b;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.backup-reminder-close:hover {
+    color: #000;
+}
+
+/* 同期の状態表示。クリックで手動同期できる */
+.sync-status {
+    align-self: center;
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+}
+
+.sync-status:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+/* 固定情報の項目。普段は文字だけ、カーソルを合わせると編集できると分かるようにする */
+.inline-edit-hint {
+    font-size: 0.85em;
+    color: var(--text-light);
+    margin-bottom: 10px;
+}
+
+.inline-edit-wrap {
+    position: relative;
+}
+
+.inline-edit {
+    border: 1px solid transparent;
+    background: transparent;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.inline-edit:hover {
+    border-color: var(--border);
+    background: #f7f9fb;
+}
+
+/* 編集中だけ、通常の入力欄と同じ見た目にする */
+.inline-edit:focus {
+    border-color: var(--primary);
+    background: #fff;
+    cursor: text;
+    outline: none;
+}
+
+.inline-edit-wrap::after {
+    content: '✏️';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    font-size: 0.9em;
+}
+
+.inline-edit-wrap:hover::after {
+    opacity: 0.6;
+}
+
+.inline-edit-wrap:focus-within::after {
+    opacity: 0;
+}
+
+/* 画面下部の操作。入力し終えた流れのまま押せる位置に置く */
+.bottom-actions {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin: 24px 0 40px;
+}
+
+.btn-lg {
+    padding: 16px 36px;
+    font-size: 1.1rem;
+}
+
+@media (max-width: 600px) {
+    .bottom-actions .btn-lg {
+        flex: 1;
+        min-width: 140px;
+        padding: 16px 20px;
+    }
+}

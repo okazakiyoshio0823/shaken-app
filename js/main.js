@@ -139,9 +139,13 @@ async function loadSavedData() {
     const company = localStorage.getItem(STORAGE_COMPANY);
     if (company) {
         const c = JSON.parse(company);
-        document.getElementById('companyName').value = c.name || '';
-        document.getElementById('companyTel').value = c.tel || '';
-        document.getElementById('companyAddress').value = c.address || '';
+        // 保存値が空のときはHTMLに書いた既定の自社情報を残す
+        const apply = (id, value) => {
+            if (value) document.getElementById(id).value = value;
+        };
+        apply('companyName', c.name);
+        apply('companyTel', c.tel);
+        apply('companyAddress', c.address);
     }
 
     // 顧客データはサーバーから取得
@@ -2535,7 +2539,7 @@ function getCurrentEstimateData() {
 }
 
 // 見積を履歴に保存
-function saveEstimateToHistory() {
+async function saveEstimateToHistory() {
     if (typeof validateLegalFees === 'function' && !validateLegalFees()) return; // 法定費用バリデーション
 
     const plate = getPlateNumber();
@@ -2563,11 +2567,27 @@ function saveEstimateToHistory() {
 
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
 
-    // 裏側でサーバーにも控えを取る（サーバーが起動していなければ何もしない）
-    if (typeof autoBackupAfterSave === 'function') autoBackupAfterSave();
-    if (typeof syncAfterChange === 'function') syncAfterChange();
+    // 保存と同時にバックアップと同期まで済ませ、結果をまとめて知らせる。
+    // 「保存したのにバックアップされていなかった」を起こさないため、待ってから結果を出す。
+    let message = '✅ 見積を保存しました';
 
-    alert('✅ 見積を履歴に保存しました');
+    if (typeof backupToServer === 'function') {
+        const backup = await backupToServer(true);
+        if (backup.ok) {
+            message += '\n🗄️ バックアップ完了';
+        } else if (backup.reason === 'auth') {
+            message += '\n⚠️ ログインの期限が切れているためバックアップできませんでした。ログインし直してください。';
+        } else {
+            message += '\n⚠️ サーバーに接続できずバックアップできませんでした（この端末には保存されています）。';
+        }
+    }
+
+    if (typeof syncEstimates === 'function') {
+        const synced = await syncEstimates(true);
+        if (synced.ok) message += '\n🔄 他の端末と同期しました（' + synced.count + '件）';
+    }
+
+    alert(message);
 }
 
 // 見積履歴モーダルを表示
