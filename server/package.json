@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "reset-admin": "node reset-admin.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
