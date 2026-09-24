@@ -99,3 +99,16 @@ function generatePDF() {
         window.print();
     }
 }
+
+// A4印刷（ブラウザの印刷機能でA4縦にそのまま出力）
+// 印刷レイアウトは index.html の @media print / @page size:A4 portrait が担当
+function printEstimate() {
+    const element = document.getElementById('printPreview');
+
+    if (!element || !element.innerHTML) {
+        alert('プレビュー内容が見つかりません。先にプレビューを表示してください。');
+        return;
+    }
+
+    window.print();
+}

@@ -154,6 +154,35 @@
                 z-index: auto !important;
             }
 
+            /* 印刷時はモーダルのUI（見出し・閉じるボタン・操作ボタン）を紙に出さない */
+            #previewModal .modal-header,
+            #previewModal .modal-footer,
+            #previewModal .modal-close {
+                display: none !important;
+            }
+
+            /* モーダルの枠・影・高さ制限を解除して、中身をそのまま紙に流す */
+            #previewModal .modal-content {
+                max-width: none !important;
+                max-height: none !important;
+                width: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                overflow: visible !important;
+                display: block !important;
+                background: #fff !important;
+            }
+
+            #previewModal .modal-body {
+                max-height: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+
             /* 印刷プレビュー領域の表示 */
             #printPreview {
                 display: block !important;
@@ -1029,6 +1058,7 @@
                     <button class="btn btn-outline" onclick="closePreviewModal()">閉じる</button>
                     <button class="btn btn-primary" onclick="shareToLine()" style="background:#06C755;">📱
                         LINEで共有</button>
+                    <button class="btn btn-primary" onclick="printEstimate()">🖨️ A4印刷</button>
                     <button class="btn btn-success" onclick="generatePDF()">📄 PDF出力</button>
                 </div>
             </div>
