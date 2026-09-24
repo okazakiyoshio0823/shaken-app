@@ -39,3 +39,11 @@ Thumbs.db
 
 # Local only files
 _local_only/
+
+# デバッグ用の使い捨てファイル（再発防止）
+test-*.js
+test_*.js
+out.txt
+err.txt
+resp*.txt
+*_output.txt
