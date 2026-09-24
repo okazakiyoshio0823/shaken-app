@@ -2565,6 +2565,7 @@ function saveEstimateToHistory() {
 
     // 裏側でサーバーにも控えを取る（サーバーが起動していなければ何もしない）
     if (typeof autoBackupAfterSave === 'function') autoBackupAfterSave();
+    if (typeof syncAfterChange === 'function') syncAfterChange();
 
     alert('✅ 見積を履歴に保存しました');
 }
@@ -2731,9 +2732,11 @@ function loadEstimateFromHistory(id) {
 // 履歴から見積を削除
 function deleteEstimateFromHistory(id) {
     if (!confirm('この見積を履歴から削除しますか？')) return;
+    if (typeof rememberDeletedId === 'function') rememberDeletedId(id);
     savedEstimates = savedEstimates.filter(e => e.id !== id);
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
     renderEstimateHistory(document.getElementById('estimateHistorySearch')?.value || '');
+    if (typeof syncAfterChange === 'function') syncAfterChange();
 }
 
 // 履歴検索

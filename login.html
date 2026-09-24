@@ -69,6 +69,14 @@
             color: #666;
         }
     </style>
+    <!-- PWA: ホーム画面に追加してアプリのように使えるようにする -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="車検見積">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
 </head>
 
 <body>
@@ -191,6 +199,14 @@
             } catch (e) {
                 alert('エラー発生: ' + e.message);
             }
+        }
+    </script>
+    <script>
+        // Service Worker: 2回目以降はサーバーの応答を待たずに開けるようにする
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("sw.js").catch(err => console.log("SW登録失敗:", err));
+            });
         }
     </script>
 </body>

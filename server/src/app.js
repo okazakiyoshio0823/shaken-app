@@ -32,11 +32,15 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// 死活監視（Renderのスリープ防止pingに使う）。認証不要・DB非依存で即座に返す
+app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/customers', require('./routes/customerRoutes'));
 app.use('/api/backup', require('./routes/backupRoutes'));
+app.use('/api/estimates', require('./routes/estimateRoutes'));
 
 // Start server FIRST so Render always sees an open port
 app.listen(PORT, () => {

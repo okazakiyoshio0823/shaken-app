@@ -381,6 +381,14 @@
             }
         }
     </style>
+    <!-- PWA: ホーム画面に追加してアプリのように使えるようにする -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="車検見積">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
 </head>
 
 <body>
@@ -422,6 +430,8 @@
             <button type="button" class="btn btn-success" onclick="saveEstimateToHistory()">💾 見積を保存</button>
             <button type="button" class="btn btn-success" onclick="showJsonImportModal()">📥 車検証JSON</button>
             <button type="button" class="btn btn-outline" onclick="showBackupModal()">🗄️ バックアップ</button>
+            <button type="button" class="btn btn-outline" onclick="syncEstimates(false)" title="他の端末と見積を同期します">🔄 同期</button>
+            <span id="syncStatus" style="align-self:center;font-size:0.85em;color:#888;"></span>
             <select class="form-control" id="documentType" title="書類種別">
                 <option value="estimate">📝 見積書</option>
                 <option value="invoice">📄 請求書</option>
@@ -1290,8 +1300,15 @@
     <script src="js/upload_client.js"></script>
     <script src="js/pdf.js"></script>
     <script src="js/backup.js"></script>
+    <script src="js/sync.js"></script>
+    <script>
+        // Service Worker: 2回目以降はサーバーの応答を待たずに開けるようにする
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("sw.js").catch(err => console.log("SW登録失敗:", err));
+            });
+        }
+    </script>
 </body>
 
-</html>< ! - -   r e l o a d   t r i g g e r   - - > 
-     
-     
+</html>
