@@ -1961,6 +1961,13 @@ function importCustomersFromFile() {
 
 let qrScanner = null;
 
+// 車検証の二次元コードは、1つの情報を複数のQRに分けて印刷する「連結QR」。
+//   コード2（右・2つ並び）: 登録番号・車台番号など
+//   コード3（左・3つ並び）: 型式指定番号・満了日・初度登録・型式など
+// 1つずつ読み取り、揃ったものから画面に反映する。仕様: 国交省「二次元コードについて（電子車検証）」
+let qrPieces = {};          // 連結の組ごとに読み取った断片 { "パリティ-総数": [断片...] }
+let qrDone = { code2: false, code3: false };
+
 // QRコードスキャナーモーダルを表示
 function showQRScannerModal() {
     document.getElementById('qrScannerModal').classList.add('active');
@@ -1977,22 +1984,25 @@ function closeQRScannerModal() {
 async function startQRScanner() {
     const video = document.getElementById('qrVideo');
     const statusEl = document.getElementById('qrStatus');
+    qrPieces = {};
+    qrDone = { code2: false, code3: false };
+    updateQRProgress();
 
     try {
         statusEl.textContent = 'カメラを起動中...';
 
+        // 車検証のQRは1つ1.5cmほどと小さいので、できるだけ高い解像度で撮る
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' }
+            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
         });
 
         video.srcObject = stream;
         video.play();
-        statusEl.textContent = '車検証のQRコードをカメラに向けてください';
+        statusEl.textContent = 'QRコードを1つずつ枠に入れてください';
 
-        // QRコード読み取りループ
         qrScanner = setInterval(() => {
             scanQRCode(video);
-        }, 500);
+        }, 300);
 
     } catch (err) {
         statusEl.textContent = 'カメラにアクセスできません: ' + err.message;
@@ -2014,83 +2024,162 @@ function stopQRScanner() {
 }
 
 // QRコードをスキャン
+// 画面全体で見つからなければ、枠のあたり（中央）を拡大して読み直す。
+// 小さなQRが横に並んでいるため、全体だけでは見つけにくい
 function scanQRCode(video) {
+    if (typeof jsQR === 'undefined' || !video.videoWidth) return;
+
+    const w = video.videoWidth, h = video.videoHeight;
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    canvas.width = w;
+    canvas.height = h;
     ctx.drawImage(video, 0, 0);
+    let code = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-    // jsQR ライブラリを使用（CDNで読み込み）
-    if (typeof jsQR !== 'undefined') {
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-        if (code) {
-            processQRCodeData(code.data);
-        }
+    if (!code) {
+        const side = Math.min(w, h) * 0.6;
+        const scale = 2;
+        canvas.width = canvas.height = side * scale;
+        ctx.drawImage(video, (w - side) / 2, (h - side) / 2, side, side, 0, 0, side * scale, side * scale);
+        code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
     }
+
+    if (code) processQRCode(code);
 }
 
-// QRコードデータを処理（車検証フォーマット）
-function processQRCodeData(data) {
-    const statusEl = document.getElementById('qrStatus');
-    statusEl.textContent = 'QRコードを検出しました！データを処理中...';
-
+// QRの中身は Shift_JIS（登録番号の漢字・ひらがな）なので、バイト列から読み直す
+function decodeQRText(code) {
     try {
-        // 車検証QRコードは特定のフォーマット（/区切り）
-        const parts = data.split('/');
-
-        if (parts.length >= 5) {
-            // 車検証QRコードの一般的な構造
-            // [0]: 登録番号地域
-            // [1]: 分類番号
-            // [2]: ひらがな
-            // [3]: 一連番号
-            // [4]: 車体番号
-            // [5]: 初度登録年月
-            // 等（バリエーションあり）
-
-            autoFillFromQRData(parts);
-            stopQRScanner();
-            closeQRScannerModal();
-            alert('車検証データを読み取りました！');
-        } else {
-            // JSONフォーマット（電子車検証からのエクスポート）
-            try {
-                const jsonData = JSON.parse(data);
-                autoFillFromJSONData(jsonData);
-                stopQRScanner();
-                closeQRScannerModal();
-                alert('車検証データを読み取りました！');
-            } catch {
-                statusEl.textContent = '車検証のQRコードを読み取ってください';
-            }
-        }
-    } catch (err) {
-        console.error('QR parse error:', err);
-        statusEl.textContent = 'QRコードの解析に失敗しました';
+        return new TextDecoder('shift_jis').decode(Uint8Array.from(code.binaryData));
+    } catch (e) {
+        return code.data;
     }
 }
 
-// QRコードデータから自動入力（従来型車検証）
-function autoFillFromQRData(parts) {
-    // パーツの数に応じて適切にマッピング
-    if (parts[0]) document.getElementById('plateRegion').value = parts[0];
-    if (parts[1]) document.getElementById('plateClass').value = parts[1];
-    if (parts[2]) document.getElementById('plateHiragana').value = parts[2];
-    if (parts[3]) document.getElementById('plateSerial').value = parts[3];
-    if (parts[4]) document.getElementById('chassisNumber').value = parts[4];
-    if (parts[5]) document.getElementById('firstRegistration').value = parts[5];
+// 読み取ったQRを処理する
+function processQRCode(code) {
+    const text = decodeQRText(code);
+    const sa = (code.chunks || []).find(c => c.type === 'structuredappend');
 
-    // 重量情報があれば設定
-    if (parts.length > 6 && parts[6]) {
-        const weight = parseInt(parts[6]);
-        if (!isNaN(weight)) {
-            document.getElementById('vehicleWeight').value = weight;
-            updateLegalFees();
-        }
+    // 連結QRでなければ、1つで完結したデータとして扱う（電子車検証アプリのJSONなど）
+    if (!sa) {
+        handleCertificateText(text);
+        return;
     }
+
+    const key = `${sa.parity}-${sa.totalSequence}`;
+    const pieces = qrPieces[key] || (qrPieces[key] = new Array(sa.totalSequence).fill(null));
+    if (pieces[sa.currentSequence] !== null) return; // 読み取り済み
+    pieces[sa.currentSequence] = text;
+    if (navigator.vibrate) navigator.vibrate(80);
+
+    if (pieces.every(p => p !== null)) {
+        handleCertificateText(pieces.join(''));
+    } else {
+        const got = pieces.filter(p => p !== null).length;
+        document.getElementById('qrStatus').textContent =
+            `読み取りました（${got}/${sa.totalSequence}）。隣のQRコードも枠に入れてください`;
+    }
+}
+
+// 揃ったデータを項目に分けて画面に反映する
+function handleCertificateText(text) {
+    const statusEl = document.getElementById('qrStatus');
+    const fields = text.split('/');
+
+    if (fields.length >= 15) {
+        applyCertificateCode3(fields);
+        qrDone.code3 = true;
+    } else if (fields.length >= 4 && fields[1].length === 12) {
+        applyCertificateCode2(fields);
+        qrDone.code2 = true;
+    } else {
+        // 電子車検証閲覧アプリなどのJSON
+        try {
+            autoFillFromJSONData(JSON.parse(text));
+            finishQRScan('車検証データを読み取りました！');
+        } catch {
+            statusEl.textContent = '車検証のQRコードではないようです。車検証の右下のQRコードを写してください';
+        }
+        return;
+    }
+
+    updateQRProgress();
+    if (qrDone.code2 && qrDone.code3) {
+        finishQRScan('車検証を読み取りました！\n\n車両重量は車検証に書かれていないため、「車両重量」は選び直してください。');
+    } else {
+        statusEl.textContent = qrDone.code2
+            ? 'ナンバー・車台番号を反映しました。続けて左側の3つ並びのQRコードを読み取ってください'
+            : '型式・満了日などを反映しました。続けて右側の2つ並びのQRコードを読み取ってください';
+    }
+}
+
+function finishQRScan(message) {
+    closeQRScannerModal();
+    alert(message);
+}
+
+function updateQRProgress() {
+    const el = document.getElementById('qrProgress');
+    if (!el) return;
+    const mark = done => done ? '✅' : '⬜';
+    el.textContent = `${mark(qrDone.code2)} 右の2つ（ナンバー・車台番号）　${mark(qrDone.code3)} 左の3つ（型式・満了日・初度登録）`;
+}
+
+// 全角の英数字・スペースを半角にする
+function toHalfWidth(s) {
+    return s.replace(/[０-９Ａ-Ｚａ-ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/　/g, ' ');
+}
+
+// コード2: バージョン / 登録番号(全角12桁) / 標板区分 / 車台番号 / 原動機型式 / 帳票種別
+function applyCertificateCode2(f) {
+    // 登録番号は「標板文字4桁＋分類番号3桁＋カナ1桁＋一連番号4桁」を全角スペースで桁埋めしたもの
+    const plate = f[1];
+    const trim = s => toHalfWidth(s).replace(/\s/g, '');
+    document.getElementById('plateRegion').value = plate.slice(0, 4).replace(/　/g, '');
+    document.getElementById('plateClass').value = trim(plate.slice(4, 7));
+    document.getElementById('plateHiragana').value = plate.slice(7, 8);
+    document.getElementById('plateSerial').value = trim(plate.slice(8, 12));
+
+    if (f[3]) document.getElementById('chassisNumber').value = f[3];
+}
+
+// コード3: バージョン / 車台番号打刻位置 / 型式指定番号＋類別区分番号 / 有効期間の満了する日(YYMMDD) /
+//         初度登録年月(YYMM) / 型式 / 軸重×4 / 騒音規制 / 近接排気騒音 / 駆動方式 / … / 燃料の種類
+function applyCertificateCode3(f) {
+    // 型式指定番号(5桁)＋類別区分番号(4桁)。型式指定車以外は空
+    const designation = f[2].trim();
+    if (/^\d{9}$/.test(designation)) {
+        document.getElementById('typeDesignationNumber').value = designation.slice(0, 5);
+        document.getElementById('categoryClassificationNumber').value = designation.slice(5);
+    }
+
+    // 西暦下2桁を4桁に。未来の年になるものは1900年代
+    const toYear = yy => {
+        const y = 2000 + parseInt(yy, 10);
+        return y > new Date().getFullYear() + 5 ? y - 100 : y;
+    };
+
+    // 満了日。電子車検証の券面は更新されないため "999999"（不明）が入る
+    const expiry = f[3].trim();
+    if (/^\d{6}$/.test(expiry) && expiry !== '999999') {
+        document.getElementById('shakenExpiryDate').value =
+            `${toYear(expiry.slice(0, 2))}-${expiry.slice(2, 4)}-${expiry.slice(4, 6)}`;
+    }
+
+    // 初度登録年月（日は無いので1日とする）
+    const firstReg = f[4].trim();
+    if (/^\d{4}$/.test(firstReg) && firstReg !== '9999') {
+        document.getElementById('firstRegistration').value = `${toYear(firstReg.slice(0, 2))}-${firstReg.slice(2, 4)}-01`;
+        if (typeof syncSeirekiToWareki === 'function') syncSeirekiToWareki('firstRegistration');
+    }
+
+    if (f[5] && f[5].trim()) document.getElementById('carModel').value = f[5].trim();
+
+    if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
+    updateLegalFees();
 }
 
 // JSONデータから自動入力（電子車検証エクスポート）

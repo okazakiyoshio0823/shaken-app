@@ -1122,7 +1122,8 @@
                     </div>
                 </div>
                 <p id="qrStatus" style="margin-top:16px;color:#666;">カメラを起動中...</p>
-                <p style="font-size:0.85em;color:#999;margin-top:8px;">💡 車検証のQRコードを枠内に合わせてください</p>
+                <p id="qrProgress" style="font-size:0.9em;margin-top:8px;"></p>
+                <p style="font-size:0.85em;color:#999;margin-top:8px;">💡 車検証の右下に小さなQRコードが5つ並んでいます。1つずつ枠に入れてください。<br>枠いっぱいに大きく写すと読み取りやすくなります</p>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeQRScannerModal()">キャンセル</button>
@@ -1313,7 +1314,8 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <!-- 車検証の連結QRに対応させたjsQR（js/vendor/jsQR.js 冒頭参照） -->
+    <script src="js/vendor/jsQR.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
