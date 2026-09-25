@@ -1134,3 +1134,21 @@ body {
         padding: 16px 20px;
     }
 }
+
+/* 法定費用を明細に載せないとき。入力値は残し、使っていないことが分かるよう薄くする */
+.legal-hidden-note {
+    display: none;
+    padding: 8px 20px;
+    background: #fff3e0;
+    color: #e65100;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+#legalFeesCard.legal-hidden .legal-hidden-note {
+    display: block;
+}
+
+#legalFeesCard.legal-hidden .card-body {
+    opacity: 0.4;
+}

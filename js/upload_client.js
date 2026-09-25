@@ -14,11 +14,8 @@ async function uploadSelectedPhoto() {
     formData.append('photo', file);
 
     try {
-        // API_BASE_URL の決定 (file:// プロトコル対応)
-        const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const baseUrl = isLocal ? 'http://localhost:5000/api' : '/api';
-
-        const response = await fetch(`${baseUrl}/upload`, {
+        // 接続先は api.js の API_BASE_URL に合わせる
+        const response = await fetch(`${API_BASE_URL}/upload`, {
             method: 'POST',
             body: formData
         });
@@ -53,7 +50,7 @@ function renderUploadedPhotos() {
 
         const img = document.createElement('img');
         // URLが相対パス(/uploads/...)の場合と絶対パスの場合に対応
-        const src = url.startsWith('http') ? url : `http://localhost:5000${url}`;
+        const src = url.startsWith('http') ? url : API_BASE_URL.replace(/\/api$/, '') + url;
         img.src = src;
         img.style.width = '100px';
         img.style.height = '100px';

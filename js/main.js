@@ -133,6 +133,35 @@ function initializeEnterKeyNavigation() {
     console.log('Enterキーナビゲーションを初期化しました（動的対応版）');
 }
 
+// サーバーにつながらない間にこの端末へ保存したお客様を、サーバーへ送る。
+// 送れたものから手元の一覧を外すので、途中で失敗しても次回に続きから送られ、二重登録にならない
+async function migrateLocalCustomersToServer() {
+    let local;
+    try {
+        local = JSON.parse(localStorage.getItem(STORAGE_CUSTOMERS) || '[]');
+    } catch (e) {
+        return;
+    }
+    if (!Array.isArray(local) || local.length === 0) return;
+
+    const remaining = [];
+    let sent = 0;
+    for (const customer of local) {
+        // サーバーのID（UUID）を持つものは、サーバーから読み込んだものなので送らない
+        if (typeof customer.id === 'string' && customer.id.length > 20) continue;
+        try {
+            // 手元のIDは端末内だけのものなので、サーバーには新規として登録する
+            await window.shakenApi.saveCustomer({ ...customer, id: null });
+            sent++;
+        } catch (e) {
+            console.error('お客様データの送信に失敗:', customer.userName, e);
+            remaining.push(customer);
+        }
+    }
+    localStorage.setItem(STORAGE_CUSTOMERS, JSON.stringify(remaining));
+    console.log(`お客様データをサーバーへ移しました: ${sent}件（未送信 ${remaining.length}件）`);
+}
+
 // データ読み込み
 async function loadSavedData() {
     // 会社情報はローカルストレージのままでOK（端末ごとの設定という扱い）
@@ -151,6 +180,7 @@ async function loadSavedData() {
     // 顧客データはサーバーから取得
     try {
         if (await window.shakenApi.checkHealth()) {
+            await migrateLocalCustomersToServer();
             savedCustomers = await window.shakenApi.getCustomers();
             console.log('Server data loaded:', savedCustomers.length);
         } else {
@@ -466,8 +496,39 @@ function undoClearLegalFees() {
     if (undoBtn) undoBtn.style.display = 'none';
 }
 
+// 車検以外の仕事では法定費用を見積書にも合計にも載せない。
+// 入力値は消さずに残すので、戻せばそのまま使える
+window.hideLegalFees = false;
+
+function setLegalFeesHidden(hidden) {
+    window.hideLegalFees = !!hidden;
+
+    const card = document.getElementById('legalFeesCard');
+    if (card) card.classList.toggle('legal-hidden', window.hideLegalFees);
+
+    const btn = document.getElementById('hideLegalFeesBtn');
+    if (btn) btn.textContent = window.hideLegalFees ? '✅ 明細に載せる' : '🚫 明細に載せない';
+
+    calculateTotals();
+}
+
+function toggleLegalFeesHidden() {
+    setLegalFeesHidden(!window.hideLegalFees);
+}
+
+// 合計に入れる法定費用・諸費用
+function getLegalFeesTotal() {
+    if (window.hideLegalFees) return 0;
+    const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
+    const agency = parseInt(document.getElementById('agencyFee').value) || 0;
+    return currentLegalFees.weightTax + currentLegalFees.jibaiseki + currentLegalFees.stamp + reserve + agency;
+}
+
 // 法定費用のバリデーション
 function validateLegalFees() {
+    // 載せない設定なら、法定費用の入力内容は問わない
+    if (window.hideLegalFees) return true;
+
     const shakenType = document.getElementById('shakenType').value;
     const weightTax = parseInt(document.getElementById('weightTaxInput').value) || 0;
     const jibaiseki = parseInt(document.getElementById('jibaisekiInput').value) || 0;
@@ -943,10 +1004,8 @@ function calculateTotals() {
     const maint = maintenanceItems.reduce((s, i) => s + i.taxIncludedPrice, 0);
     const totalDiscount = maintenanceItems.reduce((s, i) => s + (i.discountAmount?.total || 0), 0);
 
-    const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
-    const agency = parseInt(document.getElementById('agencyFee').value) || 0;
-    const legal = currentLegalFees.weightTax + currentLegalFees.jibaiseki + currentLegalFees.stamp + reserve + agency;
-    
+    const legal = getLegalFeesTotal();
+
     // 端数調整の取得
     const fractionAdjInput = document.getElementById('fractionAdjustment');
     const fractionAdj = (fractionAdjInput && parseInt(fractionAdjInput.value)) ? parseInt(fractionAdjInput.value) : 0;
@@ -954,7 +1013,7 @@ function calculateTotals() {
     const grand = maint + legal - fractionAdj;
 
     document.getElementById('maintenanceSubtotal').textContent = `¥${maint.toLocaleString()}`;
-    document.getElementById('legalFeesSubtotal').textContent = `¥${legal.toLocaleString()}`;
+    document.getElementById('legalFeesSubtotal').textContent = window.hideLegalFees ? '載せない' : `¥${legal.toLocaleString()}`;
     document.getElementById('grandTotal').textContent = `¥${grand.toLocaleString()}`;
 
     // 合計値引き額を保存（プレビューで使用）
@@ -966,9 +1025,7 @@ function calculateTotals() {
 // 端数自動調整機能
 function autoAdjustFraction(unit) {
     const maint = maintenanceItems.reduce((s, i) => s + i.taxIncludedPrice, 0);
-    const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
-    const agency = parseInt(document.getElementById('agencyFee').value) || 0;
-    const legal = currentLegalFees.weightTax + currentLegalFees.jibaiseki + currentLegalFees.stamp + reserve + agency;
+    const legal = getLegalFeesTotal();
     const totalBeforeAdjustment = maint + legal;
     
     if (totalBeforeAdjustment === 0) return;
@@ -1077,7 +1134,56 @@ function clearForm() {
     window.currentUploadedPhotos = [];
     if (window.renderUploadedPhotos) window.renderUploadedPhotos();
 
+    setLegalFeesHidden(false);
     updateLegalFees();
+}
+
+// 欄ごとのクリア（各欄の見出し右のボタン）
+function clearFieldValues(ids) {
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+}
+
+function clearCustomerSection() {
+    if (!confirm('お客様情報をクリアしますか？')) return;
+
+    clearFieldValues(['userName', 'userNameKana', 'userAddress', 'userTel', 'userEmail', 'ownerName', 'ownerAddress']);
+    // 別のお客様として保存されるよう、読み込み中のお客様との紐付けも外す
+    window.currentCustomerId = null;
+
+    const sameAsUser = document.getElementById('ownerSameAsUser');
+    if (sameAsUser) {
+        sameAsUser.checked = true;
+        toggleOwnerSameAsUser();
+    }
+}
+
+function clearVehicleSection() {
+    if (!confirm('車両情報をクリアしますか？')) return;
+
+    clearFieldValues([
+        'plateRegion', 'plateClass', 'plateHiragana', 'plateSerial',
+        'carName', 'carModel', 'chassisNumber', 'typeDesignationNumber', 'categoryClassificationNumber',
+        'firstRegistration', 'firstRegistrationYear', 'firstRegistrationMonth', 'firstRegistrationDay',
+        'mileage', 'shakenExpiryDate', 'vehicleWeight'
+    ]);
+    document.getElementById('carMaker').value = '';
+    onMakerChange(); // 車名・型式の選択肢も空に戻す
+    document.getElementById('vehicleAge').value = 'normal';
+
+    if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
+    updateLegalFees(); // 重量・年数が変わるので法定費用を計算し直す
+}
+
+function clearMaintenanceSection() {
+    if (!confirm('整備内容をすべて削除しますか？')) return;
+
+    maintenanceItems = [];
+    clearFieldValues(['newItemName', 'newItemParts', 'newItemFluid', 'newItemWage']);
+    renderMaintenanceTable();
+    calculateTotals();
 }
 
 // プレビュー
@@ -1139,16 +1245,14 @@ function generatePreviewHtml() {
     }
 
     let maintString = document.getElementById('maintenanceSubtotal').textContent;
-    let legalString = document.getElementById('legalFeesSubtotal').textContent;
     let grandString = document.getElementById('grandTotal').textContent;
 
     // エラーハンドリング: 要素が見つからない場合
     if (!maintString) maintString = '0';
-    if (!legalString) legalString = '0';
     if (!grandString) grandString = '0';
 
     const maint = parseCurrency(maintString);
-    const legal = parseCurrency(legalString);
+    const legal = getLegalFeesTotal();
     const grand = parseCurrency(grandString); // 数値として取得するように修正
 
     const reserveInput = document.getElementById('reservationFee'); // ID修正
@@ -1384,6 +1488,7 @@ function generatePreviewHtml() {
 
         <div style="margin-bottom: 20px;">
             <div style="width: 48%; display: inline-block; vertical-align: top; margin-right: 2%;">
+                ${window.hideLegalFees ? '' : `
                 <h4 style="margin-top: 0; background: #eee; padding: 5px; font-size:1em;">法定費用・諸費用</h4>
                 <table class="preview-table" style="width: 100%; font-size: 0.9em; border-collapse: collapse;">
                     <tr style="border-bottom: 1px solid #ddd;"><td>自動車重量税</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
@@ -1392,7 +1497,7 @@ function generatePreviewHtml() {
                     <tr style="border-bottom: 1px solid #ddd;"><td>検査予約手数料</td><td class="text-right">¥${reserve.toLocaleString()}</td></tr>
                     <tr style="border-bottom: 1px solid #ddd;"><td>代行手数料</td><td class="text-right">¥${agency.toLocaleString()}</td></tr>
                     <tr style="border-top: 2px solid #ccc; background:#f9f9f9;"><td class="text-right"><strong>諸費用 小計</strong></td><td class="text-right"><strong>¥${legal.toLocaleString()}</strong></td></tr>
-                </table>
+                </table>`}
             </div>
 
             <div style="width: 48%; display: inline-block; vertical-align: top;">
@@ -1827,6 +1932,8 @@ function importCustomersFromFile() {
                 localStorage.setItem(STORAGE_CUSTOMERS, JSON.stringify(savedCustomers));
                 alert(`インポート完了\n新規追加: ${addedCount}件\n更新: ${updatedCount}件`);
                 renderCustomerList();
+                // サーバーにつながっていれば、取り込んだお客様をサーバーへ送って一覧を取り直す
+                loadSavedData().then(() => renderCustomerList());
             } catch (err) {
                 alert('ファイルの読み込みに失敗しました: ' + err.message);
             }
@@ -2369,7 +2476,7 @@ function shareToLine() {
     // 法定費用
     const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
     const agency = parseInt(document.getElementById('agencyFee').value) || 0;
-    const legalFeeText = `\n📜 法定費用\n・重量税 ¥${currentLegalFees.weightTax.toLocaleString()}\n・自賠責 ¥${currentLegalFees.jibaiseki.toLocaleString()}\n・印紙代 ¥${currentLegalFees.stamp.toLocaleString()}\n・予備検査料 ¥${reserve.toLocaleString()}\n・代行手数料 ¥${agency.toLocaleString()}\n法定費用 合計: ¥${(currentLegalFees.weightTax + currentLegalFees.jibaiseki + currentLegalFees.stamp + reserve + agency).toLocaleString()}\n`;
+    const legalFeeText = window.hideLegalFees ? '' : `\n📜 法定費用\n・重量税 ¥${currentLegalFees.weightTax.toLocaleString()}\n・自賠責 ¥${currentLegalFees.jibaiseki.toLocaleString()}\n・印紙代 ¥${currentLegalFees.stamp.toLocaleString()}\n・予備検査料 ¥${reserve.toLocaleString()}\n・代行手数料 ¥${agency.toLocaleString()}\n法定費用 合計: ¥${getLegalFeesTotal().toLocaleString()}\n`;
 
     const message = `【${docInfo.title}】
 
@@ -2386,79 +2493,81 @@ ${maintenanceText}${legalFeeText}
 
 ${companyName}より`;
 
-    // モバイル判定
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
     // LINE共有モーダルを表示
     document.getElementById('lineShareText').value = message;
     document.getElementById('lineShareModal').classList.add('active');
 
     // グローバル変数に保存（ボタンアクション用）
     window.currentLineMessage = message;
-    window.currentLineUrl = `https://line.me/R/share?text=${encodeURIComponent(message)}`;
+
+    // スマホでは見積書PDFを添えて送れるよう、先に作っておく。
+    // 共有画面はボタンを押した直後にしか開けないため、押してから作ると間に合わない
+    window.currentLinePdfFile = null;
+    if (isMobileDevice() && navigator.canShare && typeof createEstimatePdfBlob === 'function') {
+        const filename = getEstimatePdfFilename() + '.pdf';
+        createEstimatePdfBlob().then(blob => {
+            const file = new File([blob], filename, { type: 'application/pdf' });
+            if (navigator.canShare({ files: [file] })) window.currentLinePdfFile = file;
+        }).catch(err => console.error('LINE送信用PDFの作成に失敗:', err));
+    }
+}
+
+function isMobileDevice() {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
 
 function closeLineShareModal() {
     document.getElementById('lineShareModal').classList.remove('active');
 }
 
-function copyLineText() {
-    const textArea = document.getElementById('lineShareText');
-    textArea.select();
-    document.execCommand('copy');
-    alert('📋 メッセージをコピーしました');
-}
-
-function openLineApp() {
-    if (window.currentLineUrl) {
-        window.open(window.currentLineUrl, '_blank');
+async function copyTextToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch (e) {
+        // file:// など clipboard API が使えない環境向け
+        const textArea = document.getElementById('lineShareText');
+        textArea.select();
+        return document.execCommand('copy');
     }
 }
 
-// 顧客データ保存時に車検満了日も保存
-const originalSaveCustomerData = saveCustomerData;
-saveCustomerData = function () {
-    // 元の保存処理を呼び出し
-    const plate = getPlateNumber();
-    if (plate === '-') { alert('ナンバープレートを入力してください'); return; }
+async function copyLineText() {
+    await copyTextToClipboard(window.currentLineMessage || document.getElementById('lineShareText').value);
+    alert('📋 メッセージをコピーしました');
+}
 
-    const ownerSameAsUser = document.getElementById('ownerSameAsUser').checked;
+// 送る相手を選んでLINEで送る。
+// line.me/R/share はPCだとLINEのWebサイトが開くだけなので、LINEアプリを直接開く
+async function openLineApp() {
+    const message = window.currentLineMessage;
+    if (!message) return;
 
-    const data = {
-        id: Date.now(), savedAt: new Date().toISOString(),
-        userName: document.getElementById('userName').value,
-        userNameKana: document.getElementById('userNameKana').value,
-        userAddress: document.getElementById('userAddress').value,
-        userTel: document.getElementById('userTel').value,
-        userEmail: document.getElementById('userEmail').value,
-        ownerSameAsUser: ownerSameAsUser,
-        ownerName: ownerSameAsUser ? '' : document.getElementById('ownerName').value,
-        ownerAddress: ownerSameAsUser ? '' : document.getElementById('ownerAddress').value,
-        plateRegion: document.getElementById('plateRegion').value,
-        plateClass: document.getElementById('plateClass').value,
-        plateHiragana: document.getElementById('plateHiragana').value,
-        plateSerial: document.getElementById('plateSerial').value,
-        carName: document.getElementById('carName').value,
-        carModel: document.getElementById('carModel').value,
-        chassisNumber: document.getElementById('chassisNumber').value,
-        firstRegistration: document.getElementById('firstRegistration').value,
-        mileage: document.getElementById('mileage').value,
-        vehicleWeight: document.getElementById('vehicleWeight').value,
-        vehicleAge: document.getElementById('vehicleAge').value,
-        shakenType: document.getElementById('shakenType').value // 車検区分を追加
-    };
+    if (isMobileDevice()) {
+        // 共有画面で「LINE」→ 送る相手を選ぶ。PDFが用意できていれば見積書ごと送れる
+        if (navigator.share) {
+            const data = window.currentLinePdfFile
+                ? { files: [window.currentLinePdfFile], text: message }
+                : { text: message };
+            try {
+                await navigator.share(data);
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return; // 共有画面を閉じただけ
+                console.error('共有に失敗:', err);
+            }
+        }
+        // 共有機能が無い端末は、LINEアプリの送り先選択画面を直接開く
+        window.location.href = `line://msg/text/${encodeURIComponent(message)}`;
+        return;
+    }
 
-    const idx = savedCustomers.findIndex(c =>
-        c.plateRegion === data.plateRegion && c.plateClass === data.plateClass &&
-        c.plateHiragana === data.plateHiragana && c.plateSerial === data.plateSerial
-    );
-    if (idx >= 0) savedCustomers[idx] = data;
-    else savedCustomers.push(data);
-
-    localStorage.setItem(STORAGE_CUSTOMERS, JSON.stringify(savedCustomers));
-    saveCompanyInfo();
-    alert('顧客データを保存しました');
-};
+    // PC: 文面をコピーしてからLINEアプリを開く。
+    // 送り先選択が出ないときも、相手のトークに貼り付ければ送れる
+    await copyTextToClipboard(message);
+    alert('📋 メッセージをコピーしました。\n\nLINEが開いたら送る相手を選んでください。\n選ぶ画面が出ないときは、相手のトークを開いて Ctrl+V で貼り付けて送信してください。\n\n見積書PDFも送るときは「PDF出力」で保存したファイルをトークにドラッグしてください。');
+    window.location.href = `line://msg/text/${encodeURIComponent(message)}`;
+}
 
 // 顧客データ読み込み時に車検区分も復元
 const originalLoadCustomerData = loadCustomerData;
@@ -2528,6 +2637,7 @@ function getCurrentEstimateData() {
         // 法定費用
         reservationFee: document.getElementById('reservationFee').value,
         agencyFee: document.getElementById('agencyFee').value,
+        hideLegalFees: !!window.hideLegalFees,
         // 整備項目
         maintenanceItems: [...maintenanceItems],
         // 備考・メモ
@@ -2721,6 +2831,7 @@ function loadEstimateFromHistory(id) {
     // 法定費用
     document.getElementById('reservationFee').value = d.reservationFee || '2200';
     document.getElementById('agencyFee').value = d.agencyFee || '11000';
+    setLegalFeesHidden(d.hideLegalFees);
 
     // 整備項目
     maintenanceItems = d.maintenanceItems || [];

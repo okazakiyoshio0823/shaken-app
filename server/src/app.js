@@ -13,6 +13,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Renderはプロキシ経由で届くため、これが無いと全員が同じIPに見え、回数制限を全員で分け合ってしまう
+app.set('trust proxy', 1);
+
 // Security Middleware
 app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" } // Allow images to be loaded
@@ -27,7 +30,8 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Rate Limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    // PCとスマホを同じ店のWi-Fi（同じIP）で使い、画面を開くたびに同期するので100では足りない
+    max: 1000,
     message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);

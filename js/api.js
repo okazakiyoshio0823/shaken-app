@@ -3,7 +3,6 @@
 const urlParams = new URLSearchParams(window.location.search);
 // デモモードはURLパラメータで明示された場合のみ有効にする（GitHub Pagesでも本番につなぐため）
 const isDemoMode = urlParams.get('demo') === 'true';
-const isLocal = typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 // デモモード（?demo=true）の場合はダミーAPIを使用
 if (isDemoMode) {
@@ -68,9 +67,11 @@ if (isDemoMode) {
 // 本番APIのURL（Renderデプロイ済みのURL）
 const RENDER_BACKEND_URL = 'https://shaken-app-server.onrender.com/api';
 
-let baseUrl = isLocal ? 'http://localhost:5000/api' : '/api';
-// GitHub Pagesなどのホスティング環境ではRenderのバックエンドを使用
-if (window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel.app')) {
+// localhost で開いたとき（開発用）だけローカルサーバーを使う。
+// デスクトップのショートカット（file://）・GitHub Pages・スマホはすべてRenderにつなぎ、同じデータを使う
+const isDevServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+let baseUrl = isDevServer ? 'http://localhost:5000/api' : '/api';
+if (window.location.protocol === 'file:' || window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel.app')) {
     baseUrl = RENDER_BACKEND_URL;
 }
 

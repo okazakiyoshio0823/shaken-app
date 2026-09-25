@@ -1,6 +1,19 @@
 const Customer = require('../models/Customer');
 const Estimate = require('../models/Estimate');
 
+// 画面のお客様データのうち、氏名などCustomer側の列と写真・整備項目以外をまるごと保存する。
+// 項目を列挙すると所有者欄や車検区分などが抜け落ち、別の端末で開いたときに消えてしまうため
+function toVehicleInfo(data) {
+    const {
+        id, savedAt, _customerId, _estimateId,
+        userName, customerName, userNameKana, userTel, userAddress, userEmail,
+        name, name_kana, phone, address, email,
+        maintenanceItems, photoUrls,
+        ...rest
+    } = data;
+    return rest;
+}
+
 // Get all customers
 exports.getAllCustomers = async (req, res) => {
     try {
@@ -52,22 +65,7 @@ exports.createCustomer = async (req, res) => {
         if (data.plateSerial) { // 車両情報がある場合
             await Estimate.create({
                 CustomerId: customer.id,
-                vehicle_info: {
-                    plateRegion: data.plateRegion,
-                    plateClass: data.plateClass,
-                    plateHiragana: data.plateHiragana,
-                    plateSerial: data.plateSerial,
-                    carName: data.carName,
-                    carModel: data.carModel,
-                    chassisNumber: data.chassisNumber,
-                    typeDesignationNumber: data.typeDesignationNumber,
-                    categoryClassificationNumber: data.categoryClassificationNumber,
-                    firstRegistration: data.firstRegistration,
-                    mileage: data.mileage,
-                    vehicleWeight: data.vehicleWeight,
-                    vehicleAge: data.vehicleAge,
-                    shakenExpiryDate: data.shakenExpiryDate
-                },
+                vehicle_info: toVehicleInfo(data),
                 maintenance_items: data.maintenanceItems || [],
                 total_amount: 0, // 必要なら計算して入れる
                 status: 'saved',
@@ -107,22 +105,7 @@ exports.updateCustomer = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
-        const vehicleInfo = {
-            plateRegion: data.plateRegion,
-            plateClass: data.plateClass,
-            plateHiragana: data.plateHiragana,
-            plateSerial: data.plateSerial,
-            carName: data.carName,
-            carModel: data.carModel,
-            chassisNumber: data.chassisNumber,
-            typeDesignationNumber: data.typeDesignationNumber,
-            categoryClassificationNumber: data.categoryClassificationNumber,
-            firstRegistration: data.firstRegistration,
-            mileage: data.mileage,
-            vehicleWeight: data.vehicleWeight,
-            vehicleAge: data.vehicleAge,
-            shakenExpiryDate: data.shakenExpiryDate
-        };
+        const vehicleInfo = toVehicleInfo(data);
 
         if (latestEstimate) {
             await latestEstimate.update({
