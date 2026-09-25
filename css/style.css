@@ -1152,3 +1152,34 @@ body {
 #legalFeesCard.legal-hidden .card-body {
     opacity: 0.4;
 }
+
+/* 車検証QRの読み取り結果一覧 */
+.qr-result-table {
+    width: 100%;
+    margin-top: 12px;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    text-align: left;
+}
+
+.qr-result-table th,
+.qr-result-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.qr-result-table th {
+    background: #f5f5f5;
+}
+
+.qr-result-table tr.filled td {
+    background: #f1f8e9;
+}
+
+.qr-result-note {
+    margin-top: 10px;
+    font-size: 0.8em;
+    color: #666;
+    text-align: left;
+    line-height: 1.6;
+}

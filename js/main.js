@@ -1986,6 +1986,9 @@ async function startQRScanner() {
     const statusEl = document.getElementById('qrStatus');
     qrPieces = {};
     qrDone = { code2: false, code3: false };
+    qrResults = { code2: [], code3: [] };
+    document.getElementById('qrCameraArea').style.display = '';
+    document.getElementById('qrResult').style.display = 'none';
     updateQRProgress();
 
     try {
@@ -2099,7 +2102,8 @@ function handleCertificateText(text) {
         // 電子車検証閲覧アプリなどのJSON
         try {
             autoFillFromJSONData(JSON.parse(text));
-            finishQRScan('車検証データを読み取りました！');
+            closeQRScannerModal();
+            alert('車検証データを読み取りました！');
         } catch {
             statusEl.textContent = '車検証のQRコードではないようです。車検証の右下のQRコードを写してください';
         }
@@ -2107,18 +2111,16 @@ function handleCertificateText(text) {
     }
 
     updateQRProgress();
+    renderQRResults();
     if (qrDone.code2 && qrDone.code3) {
-        finishQRScan('車検証を読み取りました！\n\n車両重量は車検証に書かれていないため、「車両重量」は選び直してください。');
+        stopQRScanner();
+        document.getElementById('qrCameraArea').style.display = 'none';
+        statusEl.textContent = '✅ 車検証を読み取りました。読み取った内容は下の通りです';
     } else {
         statusEl.textContent = qrDone.code2
             ? 'ナンバー・車台番号を反映しました。続けて左側の3つ並びのQRコードを読み取ってください'
             : '型式・満了日などを反映しました。続けて右側の2つ並びのQRコードを読み取ってください';
     }
-}
-
-function finishQRScan(message) {
-    closeQRScannerModal();
-    alert(message);
 }
 
 function updateQRProgress() {
@@ -2128,58 +2130,215 @@ function updateQRProgress() {
     el.textContent = `${mark(qrDone.code2)} 右の2つ（ナンバー・車台番号）　${mark(qrDone.code3)} 左の3つ（型式・満了日・初度登録）`;
 }
 
+// 読み取った項目の一覧。{ label, value, target(入力した欄の名前。入れていなければ空) }
+let qrResults = { code2: [], code3: [] };
+
+function renderQRResults() {
+    const el = document.getElementById('qrResult');
+    const rows = [...qrResults.code2, ...qrResults.code3];
+    if (!el || rows.length === 0) return;
+
+    el.innerHTML = `
+        <table class="qr-result-table">
+            <tr><th>項目</th><th>読み取った値</th><th>入力先</th></tr>
+            ${rows.map(r => `<tr class="${r.target ? 'filled' : ''}">
+                <td>${escapeHtml(r.label)}</td>
+                <td>${escapeHtml(r.value || '－')}</td>
+                <td>${r.target ? '✅ ' + escapeHtml(r.target) : ''}</td>
+            </tr>`).join('')}
+        </table>
+        <p class="qr-result-note">
+            ※ 使用者・所有者の氏名と住所、車名、車両重量、乗車定員などは、QRコードに入っていません（国交省の仕様）。
+            車名は型式から車種データベースで探して入れています（見つからない車種は手で入れてください）。
+            車両重量は軸重の合計から入れています。
+            氏名・住所まで取り込むには、「電子車検証データを読み込み」から車検証閲覧アプリのファイルを読み込んでください。
+        </p>`;
+    el.style.display = 'block';
+}
+
 // 全角の英数字・スペースを半角にする
 function toHalfWidth(s) {
     return s.replace(/[０-９Ａ-Ｚａ-ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/　/g, ' ');
 }
+
+// 西暦下2桁を4桁に。未来の年になるものは1900年代
+function qrYear(yy) {
+    const y = 2000 + parseInt(yy, 10);
+    return y > new Date().getFullYear() + 5 ? y - 100 : y;
+}
+
+// YYMMDD / YYMM を表示用に。"999999" "9999" は未設定
+function qrDateLabel(s) {
+    s = s.trim();
+    if (/^9+$/.test(s)) return '記載なし';
+    if (/^\d{6}$/.test(s)) return `${qrYear(s.slice(0, 2))}年${+s.slice(2, 4)}月${+s.slice(4, 6)}日`;
+    if (/^\d{4}$/.test(s)) return `${qrYear(s.slice(0, 2))}年${+s.slice(2, 4)}月`;
+    return s;
+}
+
+// "-" や空白だけの項目は「なし」
+function qrValue(s, unit = '') {
+    s = (s || '').trim();
+    if (!s || s === '-') return 'なし';
+    return s + unit;
+}
+
+const QR_PLATE_TYPES = {
+    '1': '小板・2枚・ペイント', '2': '大板・2枚・ペイント', '3': '小板・1枚・ペイント', '4': '大板・1枚・ペイント',
+    '5': '小板・2枚・字光', '6': '大板・2枚・字光', '7': '小板・1枚・字光', '8': '大板・1枚・字光'
+};
+const QR_NOISE = { '10': '平成10年規制適合', '11': '平成11年規制適合', '12': '平成12年規制適合', '13': '平成13年規制適合', '26': '平成26年規制適合', '28': '平成28年規制適合' };
+const QR_DRIVE = { '1': '全輪駆動', '2': '全輪駆動以外', '0': '設定なし', '-': '一般車' };
+const QR_FUEL = {
+    '01': 'ガソリン', '02': '軽油', '03': 'LPG', '04': '灯油', '05': '電気', '06': 'ガソリン・LPG', '07': 'ガソリン・灯油',
+    '08': 'メタノール', '09': 'CNG', '11': 'LNG', '12': 'ANG', '13': '圧縮水素', '14': 'ガソリン・電気', '15': 'LPG・電気',
+    '16': '軽油・電気', '99': 'その他', '00': 'なし'
+};
 
 // コード2: バージョン / 登録番号(全角12桁) / 標板区分 / 車台番号 / 原動機型式 / 帳票種別
 function applyCertificateCode2(f) {
     // 登録番号は「標板文字4桁＋分類番号3桁＋カナ1桁＋一連番号4桁」を全角スペースで桁埋めしたもの
     const plate = f[1];
     const trim = s => toHalfWidth(s).replace(/\s/g, '');
-    document.getElementById('plateRegion').value = plate.slice(0, 4).replace(/　/g, '');
-    document.getElementById('plateClass').value = trim(plate.slice(4, 7));
-    document.getElementById('plateHiragana').value = plate.slice(7, 8);
-    document.getElementById('plateSerial').value = trim(plate.slice(8, 12));
+    const region = plate.slice(0, 4).replace(/　/g, '');
+    const cls = trim(plate.slice(4, 7));
+    const kana = plate.slice(7, 8);
+    const serial = trim(plate.slice(8, 12));
+    document.getElementById('plateRegion').value = region;
+    document.getElementById('plateClass').value = cls;
+    document.getElementById('plateHiragana').value = kana;
+    document.getElementById('plateSerial').value = serial;
 
     if (f[3]) document.getElementById('chassisNumber').value = f[3];
+
+    const plateType = (f[2] || '').trim();
+    const plateTypeLabel = /^[A-H]$/.test(plateType)
+        ? QR_PLATE_TYPES[String(plateType.charCodeAt(0) - 64)] + '（希望番号）'
+        : (QR_PLATE_TYPES[plateType] || qrValue(plateType));
+
+    qrResults.code2 = [
+        { label: '自動車登録番号', value: `${region} ${cls} ${kana} ${serial}`, target: 'ナンバープレート' },
+        { label: 'ナンバープレートの種類', value: plateTypeLabel },
+        { label: '車台番号', value: qrValue(f[3]), target: f[3] ? '車台番号' : '' },
+        { label: '原動機の型式', value: qrValue(f[4]) }
+    ];
 }
 
 // コード3: バージョン / 車台番号打刻位置 / 型式指定番号＋類別区分番号 / 有効期間の満了する日(YYMMDD) /
-//         初度登録年月(YYMM) / 型式 / 軸重×4 / 騒音規制 / 近接排気騒音 / 駆動方式 / … / 燃料の種類
+//         初度登録年月(YYMM) / 型式 / 軸重×4 / 騒音規制 / 近接排気騒音規制値 / 駆動方式 /
+//         オパシメータ測定車 / NOx・PM測定モード / NOx値 / PM値 / 保安基準適用年月日 / 燃料の種類
 function applyCertificateCode3(f) {
+    const results = [];
+
     // 型式指定番号(5桁)＋類別区分番号(4桁)。型式指定車以外は空
     const designation = f[2].trim();
-    if (/^\d{9}$/.test(designation)) {
+    const hasDesignation = /^\d{9}$/.test(designation);
+    if (hasDesignation) {
         document.getElementById('typeDesignationNumber').value = designation.slice(0, 5);
         document.getElementById('categoryClassificationNumber').value = designation.slice(5);
     }
+    results.push({ label: '型式指定番号', value: hasDesignation ? designation.slice(0, 5) : 'なし', target: hasDesignation ? '型式指定番号' : '' });
+    results.push({ label: '類別区分番号', value: hasDesignation ? designation.slice(5) : 'なし', target: hasDesignation ? '類別区分番号' : '' });
 
-    // 西暦下2桁を4桁に。未来の年になるものは1900年代
-    const toYear = yy => {
-        const y = 2000 + parseInt(yy, 10);
-        return y > new Date().getFullYear() + 5 ? y - 100 : y;
-    };
-
-    // 満了日。電子車検証の券面は更新されないため "999999"（不明）が入る
+    // 満了日。電子車検証の券面は更新されないため "999999"（記載なし）が入る
     const expiry = f[3].trim();
-    if (/^\d{6}$/.test(expiry) && expiry !== '999999') {
+    const hasExpiry = /^\d{6}$/.test(expiry) && expiry !== '999999';
+    if (hasExpiry) {
         document.getElementById('shakenExpiryDate').value =
-            `${toYear(expiry.slice(0, 2))}-${expiry.slice(2, 4)}-${expiry.slice(4, 6)}`;
+            `${qrYear(expiry.slice(0, 2))}-${expiry.slice(2, 4)}-${expiry.slice(4, 6)}`;
     }
+    results.push({
+        label: '有効期間の満了する日',
+        value: hasExpiry ? qrDateLabel(expiry) : '記載なし（電子車検証の券面には入っていません）',
+        target: hasExpiry ? '車検満了日' : ''
+    });
 
     // 初度登録年月（日は無いので1日とする）
     const firstReg = f[4].trim();
-    if (/^\d{4}$/.test(firstReg) && firstReg !== '9999') {
-        document.getElementById('firstRegistration').value = `${toYear(firstReg.slice(0, 2))}-${firstReg.slice(2, 4)}-01`;
+    const hasFirstReg = /^\d{4}$/.test(firstReg) && firstReg !== '9999';
+    if (hasFirstReg) {
+        document.getElementById('firstRegistration').value = `${qrYear(firstReg.slice(0, 2))}-${firstReg.slice(2, 4)}-01`;
         if (typeof syncSeirekiToWareki === 'function') syncSeirekiToWareki('firstRegistration');
     }
+    results.push({ label: '初度登録年月', value: qrDateLabel(firstReg), target: hasFirstReg ? '初度登録年月日' : '' });
 
-    if (f[5] && f[5].trim()) document.getElementById('carModel').value = f[5].trim();
+    // 型式。車種データベースに載っていれば、メーカー・車名・車両重量も入れる
+    const model = (f[5] || '').trim();
+    let found = null;
+    if (model) {
+        found = fillCarFromModelCode(model);
+        document.getElementById('carModel').value = model; // データベースの型式で上書きされるので戻す
+    }
+    results.push({ label: '型式', value: qrValue(model), target: model ? '型式（手入力）' : '' });
+    results.push({
+        label: '車名（型式から判定）',
+        value: found ? `${found.maker} ${found.name}` : '車種データベースに無い型式',
+        target: found ? 'メーカー・車名' : ''
+    });
+
+    // 軸重（単位10kg）。車検証では軸重の合計が車両重量になるので、そこから重量区分を決める
+    const axleKg = s => { s = (s || '').trim(); return !s || s === '-' ? 0 : parseInt(s, 10) * 10; };
+    const axles = [f[6], f[7], f[8], f[9]].map(axleKg);
+    const axleLabel = kg => kg ? `${kg}kg` : 'なし';
+    results.push({ label: '前前軸重', value: axleLabel(axles[0]) });
+    results.push({ label: '前後軸重', value: axleLabel(axles[1]) });
+    results.push({ label: '後前軸重', value: axleLabel(axles[2]) });
+    results.push({ label: '後後軸重', value: axleLabel(axles[3]) });
+
+    const totalWeight = axles.reduce((a, b) => a + b, 0);
+    const weightSelect = document.getElementById('vehicleWeight');
+    // 軽自動車かどうかは軸重では分からないので、車種データベースで軽と分かっているときはそのまま
+    const setWeight = totalWeight > 0 && weightSelect.value !== 'kei';
+    if (setWeight) {
+        weightSelect.value = totalWeight <= 500 ? '500' : totalWeight <= 1000 ? '1000' : totalWeight <= 1500 ? '1500'
+            : totalWeight <= 2000 ? '2000' : totalWeight <= 2500 ? '2500' : '3000';
+    }
+    results.push({
+        label: '車両重量（軸重の合計）',
+        value: totalWeight ? `${totalWeight}kg` : '不明',
+        target: setWeight ? '車両重量' : ''
+    });
+    results.push({ label: '騒音規制', value: QR_NOISE[(f[10] || '').trim()] || '規制対象外' });
+    results.push({ label: '近接排気騒音規制値', value: qrValue(f[11], 'dB') });
+    results.push({ label: '駆動方式', value: QR_DRIVE[(f[12] || '').trim()] || qrValue(f[12]) });
+    results.push({ label: 'オパシメータ測定車', value: (f[13] || '').trim() === '1' ? '対象' : '対象外' });
+    results.push({ label: 'NOx・PM測定モード', value: qrValue(f[14]) });
+    results.push({ label: 'NOx値', value: qrValue(f[15]) });
+    results.push({ label: 'PM値', value: qrValue(f[16]) });
+    results.push({ label: '保安基準適用年月日', value: qrDateLabel(f[17] || '') });
+    results.push({ label: '燃料の種類', value: QR_FUEL[(f[18] || '').trim()] || qrValue(f[18]) });
+
+    qrResults.code3 = results;
 
     if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
     updateLegalFees();
+}
+
+// 型式（例: DAA-GYL15W）から車種データベースを探し、メーカー・車名・型式を選んで車両重量まで入れる。
+// 先頭の排出ガス記号（DAA- など）は除いて探し、完全一致が無ければ前方一致で探す
+function fillCarFromModelCode(model) {
+    const code = model.includes('-') ? model.slice(model.indexOf('-') + 1) : model;
+    let hit = null;
+
+    for (const maker of getCarMakers()) {
+        for (const name of getCarNames(maker)) {
+            for (const m of getCarModels(maker, name)) {
+                if (m.model === code) return selectCarModel(maker, name, m.model);
+                if (!hit && (code.startsWith(m.model) || m.model.startsWith(code))) hit = { maker, name, model: m.model };
+            }
+        }
+    }
+    return hit ? selectCarModel(hit.maker, hit.name, hit.model) : null;
+}
+
+function selectCarModel(maker, name, model) {
+    document.getElementById('carMaker').value = maker;
+    onMakerChange();
+    document.getElementById('carNameSelect').value = name;
+    onCarNameChange();
+    document.getElementById('carModelSelect').value = model;
+    onModelChange();
+    return { maker, name, model };
 }
 
 // JSONデータから自動入力（電子車検証エクスポート）

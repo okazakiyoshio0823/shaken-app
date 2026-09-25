@@ -1108,25 +1108,29 @@
 
     <!-- モーダル: QRコードスキャナー -->
     <div class="modal-overlay" id="qrScannerModal">
-        <div class="modal-content" style="max-width:500px;">
+        <div class="modal-content" style="max-width:600px;">
             <div class="modal-header">
                 <h2>📷 車検証QRコード読み取り</h2>
                 <button class="modal-close" onclick="closeQRScannerModal()">×</button>
             </div>
             <div class="modal-body" style="text-align:center;">
-                <div
-                    style="position:relative;width:100%;max-width:400px;margin:0 auto;background:#000;border-radius:8px;overflow:hidden;">
-                    <video id="qrVideo" style="width:100%;height:300px;object-fit:cover;" playsinline></video>
+                <div id="qrCameraArea">
                     <div
-                        style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;border:3px solid #4CAF50;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);">
+                        style="position:relative;width:100%;max-width:400px;margin:0 auto;background:#000;border-radius:8px;overflow:hidden;">
+                        <video id="qrVideo" style="width:100%;height:300px;object-fit:cover;" playsinline></video>
+                        <div
+                            style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;border:3px solid #4CAF50;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);">
+                        </div>
                     </div>
+                    <p style="font-size:0.85em;color:#999;margin-top:8px;">💡 車検証の右下に小さなQRコードが5つ並んでいます。1つずつ枠に入れてください。<br>枠いっぱいに大きく写すと読み取りやすくなります</p>
                 </div>
                 <p id="qrStatus" style="margin-top:16px;color:#666;">カメラを起動中...</p>
                 <p id="qrProgress" style="font-size:0.9em;margin-top:8px;"></p>
-                <p style="font-size:0.85em;color:#999;margin-top:8px;">💡 車検証の右下に小さなQRコードが5つ並んでいます。1つずつ枠に入れてください。<br>枠いっぱいに大きく写すと読み取りやすくなります</p>
+                <!-- 読み取った項目の一覧（読み取るたびに増える） -->
+                <div id="qrResult" style="display:none;"></div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeQRScannerModal()">キャンセル</button>
+                <button class="btn btn-primary" onclick="closeQRScannerModal()">閉じる</button>
             </div>
         </div>
     </div>
