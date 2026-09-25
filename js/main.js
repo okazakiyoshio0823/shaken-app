@@ -2770,10 +2770,8 @@ function loadEstimateFromHistory(id) {
 
     const d = e.data;
 
-    // 会社情報
-    document.getElementById('companyName').value = d.companyName || '';
-    document.getElementById('companyTel').value = d.companyTel || '';
-    document.getElementById('companyAddress').value = d.companyAddress || '';
+    // 会社情報は見積からは読み込まない。古い見積（試しに作ったサンプル等）を開くと
+    // 自社の情報が書き換わってしまうため、常に今の自社情報を使う
 
     // お客様情報
     document.getElementById('userName').value = d.userName || '';
