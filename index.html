@@ -1122,7 +1122,7 @@
                             style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;border:3px solid #4CAF50;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);">
                         </div>
                     </div>
-                    <p style="font-size:0.85em;color:#999;margin-top:8px;">💡 車検証の右下に小さなQRコードが5つ並んでいます。1つずつ枠に入れてください。<br>枠いっぱいに大きく写すと読み取りやすくなります</p>
+                    <p style="font-size:0.85em;color:#999;margin-top:8px;">💡 「自動車検査証」（カード）と「自動車検査証記録事項」（紙）のどちらのQRコードでも読めます。<br>小さなQRコードを1つずつ、枠いっぱいに大きく写してください</p>
                 </div>
                 <p id="qrStatus" style="margin-top:16px;color:#666;">カメラを起動中...</p>
                 <p id="qrProgress" style="font-size:0.9em;margin-top:8px;"></p>
@@ -1130,7 +1130,8 @@
                 <div id="qrResult" style="display:none;"></div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" onclick="closeQRScannerModal()">閉じる</button>
+                <!-- 読み取り中は「完了」（読めた分で終える）、終わったら「閉じる」 -->
+                <button class="btn btn-primary" id="qrFinishBtn" onclick="onQRFinishButton()">完了</button>
             </div>
         </div>
     </div>

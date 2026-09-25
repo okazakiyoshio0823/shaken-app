@@ -1965,8 +1965,12 @@ let qrScanner = null;
 //   コード2（右・2つ並び）: 登録番号・車台番号など
 //   コード3（左・3つ並び）: 型式指定番号・満了日・初度登録・型式など
 // 1つずつ読み取り、揃ったものから画面に反映する。仕様: 国交省「二次元コードについて（電子車検証）」
+// 「自動車検査証」（カード）と「自動車検査証記録事項」（紙）のどちらにも同じ形式で印刷されているが、
+// 満了日はカードのQRには入っておらず（999999）、記録事項の紙にだけ入っている。
+// 片方しか無いこともあるので、読めた分だけ入れ、全部揃えば自動で完了、揃わなければ「完了」で終える
 let qrPieces = {};          // 連結の組ごとに読み取った断片 { "パリティ-総数": [断片...] }
-let qrDone = { code2: false, code3: false };
+let qrDone = { code2: false, code3: false, expiry: false };
+let qrFinished = false;
 
 // QRコードスキャナーモーダルを表示
 function showQRScannerModal() {
@@ -1985,10 +1989,12 @@ async function startQRScanner() {
     const video = document.getElementById('qrVideo');
     const statusEl = document.getElementById('qrStatus');
     qrPieces = {};
-    qrDone = { code2: false, code3: false };
+    qrDone = { code2: false, code3: false, expiry: false };
+    qrFinished = false;
     qrResults = { code2: [], code3: [] };
     document.getElementById('qrCameraArea').style.display = '';
     document.getElementById('qrResult').style.display = 'none';
+    document.getElementById('qrFinishBtn').textContent = '完了';
     updateQRProgress();
 
     try {
@@ -2093,7 +2099,7 @@ function handleCertificateText(text) {
     const fields = text.split('/');
 
     if (fields.length >= 15) {
-        applyCertificateCode3(fields);
+        if (applyCertificateCode3(fields)) qrDone.expiry = true;
         qrDone.code3 = true;
     } else if (fields.length >= 4 && fields[1].length === 12) {
         applyCertificateCode2(fields);
@@ -2112,22 +2118,53 @@ function handleCertificateText(text) {
 
     updateQRProgress();
     renderQRResults();
-    if (qrDone.code2 && qrDone.code3) {
-        stopQRScanner();
-        document.getElementById('qrCameraArea').style.display = 'none';
-        statusEl.textContent = '✅ 車検証を読み取りました。読み取った内容は下の通りです';
+
+    if (qrDone.code2 && qrDone.code3 && qrDone.expiry) {
+        finishQRScan(); // 読み取れるものは全部揃った
+    } else if (!qrDone.code3) {
+        statusEl.textContent = 'ナンバー・車台番号を反映しました。続けて左側の3つ並びのQRコードを読み取ってください';
+    } else if (!qrDone.code2) {
+        statusEl.textContent = '型式・初度登録などを反映しました。続けて右側の2つ並びのQRコードを読み取ってください';
     } else {
-        statusEl.textContent = qrDone.code2
-            ? 'ナンバー・車台番号を反映しました。続けて左側の3つ並びのQRコードを読み取ってください'
-            : '型式・満了日などを反映しました。続けて右側の2つ並びのQRコードを読み取ってください';
+        statusEl.textContent = '車検満了日は「自動車検査証記録事項」（紙）のQRコードにだけ入っています。' +
+            '紙があれば左側の3つを読み取ってください。無ければ「完了」を押してください';
     }
+}
+
+// 読み取りを終えて一覧を見せる。全部揃ったとき（自動）と「完了」ボタンから呼ばれる
+function finishQRScan() {
+    qrFinished = true;
+    stopQRScanner();
+    document.getElementById('qrCameraArea').style.display = 'none';
+    document.getElementById('qrFinishBtn').textContent = '閉じる';
+
+    const statusEl = document.getElementById('qrStatus');
+    if (!qrDone.code2 && !qrDone.code3) {
+        statusEl.textContent = 'QRコードは読み取れませんでした';
+        return;
+    }
+    const missing = [];
+    if (!qrDone.code2) missing.push('ナンバー・車台番号');
+    if (!qrDone.code3) missing.push('型式・初度登録');
+    if (!qrDone.expiry) missing.push('車検満了日');
+    statusEl.textContent = missing.length === 0
+        ? '✅ 読み取りが完了しました。読み取った内容は下の通りです'
+        : `✅ 読み取った分を入力しました（${missing.join('・')}は読み取っていないので手で入れてください）`;
+    renderQRResults();
+}
+
+// 「完了」「閉じる」ボタン
+function onQRFinishButton() {
+    if (qrFinished) closeQRScannerModal();
+    else finishQRScan();
 }
 
 function updateQRProgress() {
     const el = document.getElementById('qrProgress');
     if (!el) return;
     const mark = done => done ? '✅' : '⬜';
-    el.textContent = `${mark(qrDone.code2)} 右の2つ（ナンバー・車台番号）　${mark(qrDone.code3)} 左の3つ（型式・満了日・初度登録）`;
+    el.textContent = `${mark(qrDone.code2)} ナンバー・車台番号（右の2つ）　${mark(qrDone.code3)} 型式・初度登録（左の3つ）　` +
+        `${mark(qrDone.expiry)} 車検満了日（記録事項の紙の左の3つ）`;
 }
 
 // 読み取った項目の一覧。{ label, value, target(入力した欄の名前。入れていなければ空) }
@@ -2247,9 +2284,11 @@ function applyCertificateCode3(f) {
         document.getElementById('shakenExpiryDate').value =
             `${qrYear(expiry.slice(0, 2))}-${expiry.slice(2, 4)}-${expiry.slice(4, 6)}`;
     }
-    results.push({
+    // 記録事項の紙で満了日を読んだ後にカードを読んだときは、紙の満了日を残す
+    const prevExpiry = qrDone.expiry && qrResults.code3.find(r => r.label === '有効期間の満了する日');
+    results.push(!hasExpiry && prevExpiry ? prevExpiry : {
         label: '有効期間の満了する日',
-        value: hasExpiry ? qrDateLabel(expiry) : '記載なし（電子車検証の券面には入っていません）',
+        value: hasExpiry ? qrDateLabel(expiry) : '記載なし（カードの車検証には入っていません。記録事項の紙にあります）',
         target: hasExpiry ? '車検満了日' : ''
     });
 
@@ -2312,6 +2351,7 @@ function applyCertificateCode3(f) {
 
     if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
     updateLegalFees();
+    return hasExpiry; // 満了日を読めたか（記録事項の紙なら true）
 }
 
 // 型式（例: DAA-GYL15W）から車種データベースを探し、メーカー・車名・型式を選んで車両重量まで入れる。
