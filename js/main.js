@@ -168,7 +168,12 @@ async function migrateLocalCustomersToServer() {
 // データ読み込み
 async function loadSavedData() {
     // 会社情報はローカルストレージのままでOK（端末ごとの設定という扱い）
-    const company = localStorage.getItem(STORAGE_COMPANY);
+    let company = localStorage.getItem(STORAGE_COMPANY);
+    // 試しに使ったサンプルの会社情報が保存されていたら捨て、HTMLに書いた自社情報に戻す
+    if (company && JSON.parse(company).name === 'サンプル自動車整備') {
+        localStorage.removeItem(STORAGE_COMPANY);
+        company = null;
+    }
     if (company) {
         const c = JSON.parse(company);
         // 保存値が空のときはHTMLに書いた既定の自社情報を残す
