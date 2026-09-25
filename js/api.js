@@ -67,10 +67,10 @@ if (isDemoMode) {
 // 本番APIのURL（Renderデプロイ済みのURL）
 const RENDER_BACKEND_URL = 'https://shaken-app-server.onrender.com/api';
 
-// デスクトップのショートカット（file://）をRenderにつなぐか。
-// RenderのデータベースSupabaseが止まっているため、直るまではPC内のサーバーを使う。
-// true にするときは login.html などの接続先と 見積もり起動.bat も合わせて切り替えること
-const PC_USES_RENDER = false;
+// デスクトップのショートカット（file://）をRenderにつなぎ、スマホと同じデータを使うか。
+// Render側（Supabase）が止まったときは false にするとPC内のサーバーに戻る。
+// 切り替えるときは login.html などの接続先と 見積もり起動.bat も合わせること
+const PC_USES_RENDER = true;
 
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ||
     (window.location.protocol === 'file:' && !PC_USES_RENDER);

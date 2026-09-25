@@ -39,6 +39,17 @@ app.use('/api/', limiter);
 // 死活監視（Renderのスリープ防止pingに使う）。認証不要・DB非依存で即座に返す
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
+// DBまで届くか確かめる。Supabase無料プランは1週間アクセスが無いと止まるので、
+// GitHub Actions（.github/workflows/keepalive.yml）から定期的に呼んで止まらないようにする
+app.get('/api/health/db', async (req, res) => {
+    try {
+        await sequelize.query('SELECT 1');
+        res.json({ status: 'ok', db: 'ok', time: new Date().toISOString() });
+    } catch (err) {
+        res.status(503).json({ status: 'error', db: err.message });
+    }
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
@@ -49,33 +60,40 @@ app.use('/api/estimates', require('./routes/estimateRoutes'));
 // Start server FIRST so Render always sees an open port
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-
-    // After server is up, try to connect and sync the DB
-    sequelize.sync().then(async () => {
-        console.log('✅ Database synced successfully');
-
-        // Auto-seed admin user if not present
-        try {
-            const bcrypt = require('bcrypt');
-            const User = require('./models/User');
-            const existing = await User.findOne({ where: { username: 'admin' } });
-            if (!existing) {
-                const hash = await bcrypt.hash('admin', 10);
-                await User.create({
-                    username: 'admin',
-                    password_hash: hash,
-                    email: 'admin@example.com',
-                    role: 'admin',
-                    is_initial_password: true
-                });
-                console.log('✅ Admin user created');
-            } else {
-                console.log('Admin user already exists');
-            }
-        } catch (seedErr) {
-            console.error('Seed error (non-fatal):', seedErr.message);
-        }
-    }).catch(err => {
-        console.error('❌ Database connection failed:', err.message);
-    });
+    connectDatabase();
 });
+
+// DBにつないで表を用意する。つながらなければ1分ごとにやり直す。
+// 起動時にDB（Supabase）が止まっていると、そのままでは再起動まで表が作られないため
+async function connectDatabase() {
+    try {
+        await sequelize.sync();
+        console.log('✅ Database synced successfully');
+    } catch (err) {
+        console.error('❌ Database connection failed (1分後に再試行):', err.message);
+        setTimeout(connectDatabase, 60 * 1000);
+        return;
+    }
+
+    // Auto-seed admin user if not present
+    try {
+        const bcrypt = require('bcrypt');
+        const User = require('./models/User');
+        const existing = await User.findOne({ where: { username: 'admin' } });
+        if (!existing) {
+            const hash = await bcrypt.hash('admin', 10);
+            await User.create({
+                username: 'admin',
+                password_hash: hash,
+                email: 'admin@example.com',
+                role: 'admin',
+                is_initial_password: true
+            });
+            console.log('✅ Admin user created');
+        } else {
+            console.log('Admin user already exists');
+        }
+    } catch (seedErr) {
+        console.error('Seed error (non-fatal):', seedErr.message);
+    }
+}
