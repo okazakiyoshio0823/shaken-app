@@ -136,6 +136,9 @@ function initializeEnterKeyNavigation() {
 // サーバーにつながらない間にこの端末へ保存したお客様を、サーバーへ送る。
 // 送れたものから手元の一覧を外すので、途中で失敗しても次回に続きから送られ、二重登録にならない
 async function migrateLocalCustomersToServer() {
+    // PC内のサーバーへは送らない。Renderへ切り替えたときにまとめて移すため、手元に残しておく
+    if (API_BASE_URL !== RENDER_BACKEND_URL) return;
+
     let local;
     try {
         local = JSON.parse(localStorage.getItem(STORAGE_CUSTOMERS) || '[]');
@@ -182,6 +185,10 @@ async function loadSavedData() {
         if (await window.shakenApi.checkHealth()) {
             await migrateLocalCustomersToServer();
             savedCustomers = await window.shakenApi.getCustomers();
+            // サーバーへまだ移していない手元のお客様も一覧に出す（PC内サーバーを使っている間）
+            const pending = JSON.parse(localStorage.getItem(STORAGE_CUSTOMERS) || '[]')
+                .filter(c => !(typeof c.id === 'string' && c.id.length > 20));
+            savedCustomers = savedCustomers.concat(pending);
             console.log('Server data loaded:', savedCustomers.length);
         } else {
             console.warn('Server not reachable, falling back to local storage');

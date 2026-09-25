@@ -67,11 +67,16 @@ if (isDemoMode) {
 // 本番APIのURL（Renderデプロイ済みのURL）
 const RENDER_BACKEND_URL = 'https://shaken-app-server.onrender.com/api';
 
-// localhost で開いたとき（開発用）だけローカルサーバーを使う。
-// デスクトップのショートカット（file://）・GitHub Pages・スマホはすべてRenderにつなぎ、同じデータを使う
-const isDevServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-let baseUrl = isDevServer ? 'http://localhost:5000/api' : '/api';
-if (window.location.protocol === 'file:' || window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel.app')) {
+// デスクトップのショートカット（file://）をRenderにつなぐか。
+// RenderのデータベースSupabaseが止まっているため、直るまではPC内のサーバーを使う。
+// true にするときは login.html などの接続先と 見積もり起動.bat も合わせて切り替えること
+const PC_USES_RENDER = false;
+
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ||
+    (window.location.protocol === 'file:' && !PC_USES_RENDER);
+let baseUrl = isLocal ? 'http://localhost:5000/api' : '/api';
+// GitHub Pages・スマホ・（切り替え後の）PCはRenderにつなぐ
+if ((window.location.protocol === 'file:' && PC_USES_RENDER) || window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel.app')) {
     baseUrl = RENDER_BACKEND_URL;
 }
 
