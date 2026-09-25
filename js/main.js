@@ -2032,64 +2032,141 @@ function stopQRScanner() {
     }
 }
 
-// QRコードをスキャン
-// 画面全体で見つからなければ、枠のあたり（中央）を拡大して読み直す。
-// 小さなQRが横に並んでいるため、全体だけでは見つけにくい
-function scanQRCode(video) {
-    if (typeof jsQR === 'undefined' || !video.videoWidth) return;
-
-    const w = video.videoWidth, h = video.videoHeight;
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-    canvas.width = w;
-    canvas.height = h;
-    ctx.drawImage(video, 0, 0);
-    let code = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
-
-    if (!code) {
-        const side = Math.min(w, h) * 0.6;
-        const scale = 2;
-        canvas.width = canvas.height = side * scale;
-        ctx.drawImage(video, (w - side) / 2, (h - side) / 2, side, side, 0, 0, side * scale, side * scale);
-        code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
+// QRコードをスキャン（カメラの1コマ）。前の読み取りが終わっていなければ飛ばす
+let qrScanBusy = false;
+async function scanQRCode(video) {
+    if (qrScanBusy || !video.videoWidth) return;
+    qrScanBusy = true;
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(video, 0, 0);
+        const codes = await readQRCodesFromCanvas(canvas);
+        codes.forEach(processQRCode);
+    } catch (e) {
+        console.error('QR読み取りエラー:', e);
+    } finally {
+        qrScanBusy = false;
     }
-
-    if (code) processQRCode(code);
 }
 
-// QRの中身は Shift_JIS（登録番号の漢字・ひらがな）なので、バイト列から読み直す
-function decodeQRText(code) {
+// 画像の中のQRコードをすべて読む。戻り値は [{ bytes, seqIndex, seqSize, seqId }]
+// ZXing（zxing-wasm）は、小さなQRが何個並んでいても一度に見つけられ、連結QRの番号も返す。
+// 読み込めなかったとき（オフラインなど）は jsQR で読む。jsQRは1回に1個しか見つけられないので、
+// 画面全体と、枠のあたり（中央）を拡大したものの2通りで読む
+async function readQRCodesFromCanvas(canvas) {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    if (window.ZXingWASM) {
+        try {
+            const results = await ZXingWASM.readBarcodes(imageData, {
+                formats: ['QRCode'], maxNumberOfSymbols: 10, tryHarder: true
+            });
+            return results.filter(r => r.isValid).map(r => ({
+                bytes: r.bytes, seqIndex: r.sequenceIndex, seqSize: r.sequenceSize, seqId: r.sequenceId
+            }));
+        } catch (e) {
+            console.warn('ZXingで読めないため jsQR で読みます:', e);
+        }
+    }
+
+    if (typeof jsQR === 'undefined') return [];
+    const fromJsQR = code => {
+        const sa = (code.chunks || []).find(c => c.type === 'structuredappend');
+        return {
+            bytes: Uint8Array.from(code.binaryData),
+            seqIndex: sa ? sa.currentSequence : -1,
+            seqSize: sa ? sa.totalSequence : -1,
+            seqId: sa ? String(sa.parity) : ''
+        };
+    };
+    const w = canvas.width, h = canvas.height;
+    let code = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
+    if (!code) {
+        const side = Math.min(w, h) * 0.6;
+        const zoom = document.createElement('canvas');
+        zoom.width = zoom.height = side * 2;
+        const zctx = zoom.getContext('2d', { willReadFrequently: true });
+        zctx.drawImage(canvas, (w - side) / 2, (h - side) / 2, side, side, 0, 0, side * 2, side * 2);
+        code = jsQR(zctx.getImageData(0, 0, zoom.width, zoom.height).data, zoom.width, zoom.height, { inversionAttempts: 'dontInvert' });
+    }
+    return code ? [fromJsQR(code)] : [];
+}
+
+// 写真（スマホで撮った車検証の画像など）から読む。カメラのピントが合わないときに使う
+function readQRFromPhoto() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async () => {
+        const file = input.files[0];
+        if (!file) return;
+        const statusEl = document.getElementById('qrStatus');
+        statusEl.textContent = '写真を読み取っています...';
+        try {
+            const bitmap = await createImageBitmap(file);
+            // 大きすぎる写真は長い辺4000pxに縮める（QRを見つけるには十分）
+            const scale = Math.min(1, 4000 / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(bitmap.width * scale);
+            canvas.height = Math.round(bitmap.height * scale);
+            canvas.getContext('2d', { willReadFrequently: true }).drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+            const codes = await readQRCodesFromCanvas(canvas);
+            if (codes.length === 0) {
+                statusEl.textContent = '写真からQRコードを見つけられませんでした。QRコードの部分を大きく、ピントを合わせて撮ってください';
+                return;
+            }
+            codes.forEach(processQRCode);
+            if (!qrFinished && !statusEl.textContent.includes('完了')) {
+                statusEl.textContent = `写真から${codes.length}個のQRコードを読み取りました。` + statusEl.textContent;
+            }
+        } catch (e) {
+            console.error('写真の読み取りエラー:', e);
+            statusEl.textContent = '写真を読み込めませんでした: ' + e.message;
+        }
+    };
+    input.click();
+}
+
+// QRの中身は Shift_JIS（登録番号の漢字・ひらがな）。連結QRは文字の途中で分かれることがあるので、
+// 断片をバイトのままつなげてから文字にする
+function decodeShiftJIS(bytes) {
     try {
-        return new TextDecoder('shift_jis').decode(Uint8Array.from(code.binaryData));
+        return new TextDecoder('shift_jis').decode(bytes);
     } catch (e) {
-        return code.data;
+        return String.fromCharCode(...bytes);
     }
 }
 
 // 読み取ったQRを処理する
 function processQRCode(code) {
-    const text = decodeQRText(code);
-    const sa = (code.chunks || []).find(c => c.type === 'structuredappend');
+    if (qrFinished) return;
 
     // 連結QRでなければ、1つで完結したデータとして扱う（電子車検証アプリのJSONなど）
-    if (!sa) {
-        handleCertificateText(text);
+    if (!(code.seqSize > 1)) {
+        handleCertificateText(decodeShiftJIS(code.bytes));
         return;
     }
 
-    const key = `${sa.parity}-${sa.totalSequence}`;
-    const pieces = qrPieces[key] || (qrPieces[key] = new Array(sa.totalSequence).fill(null));
-    if (pieces[sa.currentSequence] !== null) return; // 読み取り済み
-    pieces[sa.currentSequence] = text;
+    const key = `${code.seqId}-${code.seqSize}`;
+    const pieces = qrPieces[key] || (qrPieces[key] = new Array(code.seqSize).fill(null));
+    if (pieces[code.seqIndex] !== null) return; // 読み取り済み
+    pieces[code.seqIndex] = code.bytes;
     if (navigator.vibrate) navigator.vibrate(80);
 
     if (pieces.every(p => p !== null)) {
-        handleCertificateText(pieces.join(''));
+        const all = new Uint8Array(pieces.reduce((n, p) => n + p.length, 0));
+        let offset = 0;
+        pieces.forEach(p => { all.set(p, offset); offset += p.length; });
+        handleCertificateText(decodeShiftJIS(all));
     } else {
         const got = pieces.filter(p => p !== null).length;
         document.getElementById('qrStatus').textContent =
-            `読み取りました（${got}/${sa.totalSequence}）。隣のQRコードも枠に入れてください`;
+            `読み取りました（${got}/${code.seqSize}）。隣のQRコードも枠に入れてください`;
     }
 }
 
