@@ -2157,8 +2157,13 @@ function processQRCode(code) {
     }
 
     // 右の2つ（ナンバー等）はカードと紙で中身が同じなので、どちらの書類かは「いま読んでいる書類」で決める。
-    // 書類ごとに別の組として数えるので、同じ中身でもそれぞれの書類でチェックが付く
-    const key = `${qrDoc}-${code.seqId}-${code.seqSize}`;
+    // 書類ごとに別の組として数えるので、同じ中身でもそれぞれの書類でチェックが付く。
+    // ただし読みかけの組があれば、途中で書類が切り替わってもその組の続きとする
+    // （5つが一度に写ると、左の3つで紙と分かって切り替わった後に右の2つ目が届くため）
+    const base = `${code.seqId}-${code.seqSize}`;
+    const unfinished = Object.entries(qrPieces)
+        .find(([k, g]) => k.endsWith(`-${base}`) && g.pieces.some(p => p === null));
+    const key = qrPieces[`${qrDoc}-${base}`] ? `${qrDoc}-${base}` : unfinished ? unfinished[0] : `${qrDoc}-${base}`;
     const group = qrPieces[key] || (qrPieces[key] = { doc: qrDoc, size: code.seqSize, pieces: new Array(code.seqSize).fill(null) });
     if (group.pieces[code.seqIndex] !== null) return; // 読み取り済み
     group.pieces[code.seqIndex] = code.bytes;
@@ -2172,8 +2177,13 @@ function processQRCode(code) {
         // 左の3つは満了日の有無でカードか紙かが分かるので、選んでいた書類と違えば正しい方へ移す
         if (result && result.type === 'code3') {
             group.doc = result.hasExpiry ? 'paper' : 'card';
-            // カードを選んだまま紙を読んでいたら、続きの右の2つも紙として数えるよう切り替える
-            if (result.hasExpiry && qrDoc === 'card') selectQRDoc('paper');
+            // カードを選んだまま紙を読んでいたら、読みかけの右の2つも含めて紙として数えるよう切り替える
+            if (result.hasExpiry && qrDoc === 'card') {
+                Object.values(qrPieces)
+                    .filter(g => g.doc === 'card' && g.size === 2 && g.pieces.some(p => p === null))
+                    .forEach(g => { g.doc = 'paper'; });
+                selectQRDoc('paper');
+            }
             updateQRProgress();
         }
     } else {
