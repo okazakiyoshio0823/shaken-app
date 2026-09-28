@@ -36,7 +36,7 @@ async function generatePDF() {
     // フォルダの許可はボタンを押した直後でないと求められないため、PDFを作る前に確かめる
     let folder = await getDataFolder(true);
     if (!folder && hasDataFolderSupport() && !(await loadDataFolderHandle())) {
-        if (confirm('PDFの保存先がまだ決まっていません。\n\n次の画面で「デスクトップ」を選ぶと、その中に「車検データ」フォルダを作って保存します。\n（キャンセルすると「ダウンロード」に保存します）')) {
+        if (confirm('PDFの保存先がまだ決まっていません。\n\n次の画面で、デスクトップの「車検データ」フォルダを選んでください。\n（キャンセルすると「ダウンロード」に保存します）')) {
             folder = await chooseDataFolder();
         }
     }

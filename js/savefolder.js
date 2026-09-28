@@ -48,7 +48,8 @@ async function storeDataFolderHandle(handle) {
     });
 }
 
-// 保存フォルダを選ぶ。デスクトップなどを選べば、その中に「車検データ」を作る
+// 保存フォルダを選ぶ。デスクトップそのものはEdgeが選ばせてくれないため、
+// デスクトップに作った「車検データ」を選んでもらう。別の名前のフォルダを選んだら、その中に「車検データ」を作る
 async function chooseDataFolder() {
     if (!hasDataFolderSupport()) {
         alert('この端末ではフォルダを選べません。\nPDFやバックアップは「ダウンロード」に保存されます。');
@@ -65,7 +66,7 @@ async function chooseDataFolder() {
     // アプリのフォルダ（GitHubに公開している）の中に顧客データを置かないようにする
     try {
         await picked.getFileHandle('sw.js');
-        alert('ここはアプリ本体のフォルダです。\nお客様の情報がもれないよう、ここには保存できません。\n\nデスクトップを選んでください。');
+        alert('ここはアプリ本体のフォルダです。\nお客様の情報がもれないよう、ここには保存できません。\n\nデスクトップの「車検データ」フォルダを選んでください。');
         return null;
     } catch (e) {
         // sw.js が無い＝アプリのフォルダではない
@@ -154,6 +155,6 @@ async function updateDataFolderStatus() {
     }
     const handle = await loadDataFolderHandle();
     el.innerHTML = handle
-        ? `保存先: <b>📁 ${escapeHtml(handle.name)}</b>（デスクトップなど、選んだ場所の中）`
-        : '<span style="color:#c00;">保存先がまだ決まっていません。「保存先を選ぶ」でデスクトップを選んでください。</span>';
+        ? `保存先: <b>📁 ${escapeHtml(handle.name)}</b>`
+        : '<span style="color:#c00;">保存先がまだ決まっていません。「保存先を選ぶ」で、デスクトップの「車検データ」フォルダを選んでください。</span>';
 }

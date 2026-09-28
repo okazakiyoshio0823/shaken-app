@@ -96,7 +96,7 @@ async function backupToDataFolder(folder) {
 async function exportBackupToFile() {
     let folder = await getDataFolder(true);
     if (!folder && hasDataFolderSupport()) {
-        if (!confirm('バックアップの保存先がまだ決まっていません。\n\n次の画面で「デスクトップ」を選ぶと、その中に「車検データ」フォルダを作って保存します。')) return;
+        if (!confirm('バックアップの保存先がまだ決まっていません。\n\n次の画面で、デスクトップの「車検データ」フォルダを選んでください。')) return;
         folder = await chooseDataFolder();
         if (!folder) return;
     }

@@ -3163,7 +3163,7 @@ async function saveEstimateToHistory() {
         if (backup.ok) {
             message += '\n🗄️ 控えを保存しました（' + backup.path + '）';
         } else {
-            message += '\n💡 「🗄️ バックアップ」で保存先（デスクトップ）を選ぶと、保存のたびに控えが取られます。';
+            message += '\n💡 「🗄️ バックアップ」で保存先（デスクトップの「車検データ」）を選ぶと、保存のたびに控えが取られます。';
         }
     }
 
