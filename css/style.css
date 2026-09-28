@@ -1183,3 +1183,67 @@ body {
     text-align: left;
     line-height: 1.6;
 }
+
+/* 車検証QR: 書類ごとのチェック欄 */
+.qr-docs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+    text-align: left;
+}
+
+.qr-doc {
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    background: #fafafa;
+}
+
+.qr-doc.active {
+    border-color: #4CAF50;
+    background: #f1f8e9;
+}
+
+.qr-doc-title {
+    font-weight: bold;
+    margin-bottom: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.qr-doc-now {
+    font-size: 0.75em;
+    color: white;
+    background: #4CAF50;
+    border-radius: 10px;
+    padding: 1px 8px;
+}
+
+.qr-doc-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.85em;
+    padding: 3px 0;
+}
+
+.qr-doc-row.done {
+    color: #2e7d32;
+    font-weight: bold;
+}
+
+.qr-slots {
+    letter-spacing: 2px;
+    font-size: 1.1em;
+    white-space: nowrap;
+}
+
+.qr-docs-hint {
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 6px;
+}

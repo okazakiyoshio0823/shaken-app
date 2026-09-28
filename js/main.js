@@ -1968,7 +1968,8 @@ let qrScanner = null;
 // 「自動車検査証」（カード）と「自動車検査証記録事項」（紙）のどちらにも同じ形式で印刷されているが、
 // 満了日はカードのQRには入っておらず（999999）、記録事項の紙にだけ入っている。
 // 片方しか無いこともあるので、読めた分だけ入れ、全部揃えば自動で完了、揃わなければ「完了」で終える
-let qrPieces = {};          // 連結の組ごとに読み取った断片 { "パリティ-総数": [断片...] }
+let qrPieces = {};          // 連結の組ごとに読み取った断片 { "書類-パリティ-総数": { doc, size, pieces } }
+let qrDoc = 'card';         // いま読んでいる書類 card=自動車検査証（カード） / paper=自動車検査証記録事項（紙）
 let qrDone = { code2: false, code3: false, expiry: false };
 let qrFinished = false;
 
@@ -1989,6 +1990,7 @@ async function startQRScanner() {
     const video = document.getElementById('qrVideo');
     const statusEl = document.getElementById('qrStatus');
     qrPieces = {};
+    qrDoc = 'card';
     qrDone = { code2: false, code3: false, expiry: false };
     qrFinished = false;
     qrResults = { code2: [], code3: [] };
@@ -2007,7 +2009,7 @@ async function startQRScanner() {
 
         video.srcObject = stream;
         video.play();
-        statusEl.textContent = 'QRコードを1つずつ枠に入れてください';
+        statusEl.textContent = '読み取る書類を選んで、QRコードを写してください';
 
         qrScanner = setInterval(() => {
             scanQRCode(video);
@@ -2152,35 +2154,49 @@ function processQRCode(code) {
         return;
     }
 
-    const key = `${code.seqId}-${code.seqSize}`;
-    const pieces = qrPieces[key] || (qrPieces[key] = new Array(code.seqSize).fill(null));
-    if (pieces[code.seqIndex] !== null) return; // 読み取り済み
-    pieces[code.seqIndex] = code.bytes;
+    // 右の2つ（ナンバー等）はカードと紙で中身が同じなので、どちらの書類かは「いま読んでいる書類」で決める。
+    // 書類ごとに別の組として数えるので、同じ中身でもそれぞれの書類でチェックが付く
+    const key = `${qrDoc}-${code.seqId}-${code.seqSize}`;
+    const group = qrPieces[key] || (qrPieces[key] = { doc: qrDoc, size: code.seqSize, pieces: new Array(code.seqSize).fill(null) });
+    if (group.pieces[code.seqIndex] !== null) return; // 読み取り済み
+    group.pieces[code.seqIndex] = code.bytes;
     if (navigator.vibrate) navigator.vibrate(80);
 
-    if (pieces.every(p => p !== null)) {
-        const all = new Uint8Array(pieces.reduce((n, p) => n + p.length, 0));
+    if (group.pieces.every(p => p !== null)) {
+        const all = new Uint8Array(group.pieces.reduce((n, p) => n + p.length, 0));
         let offset = 0;
-        pieces.forEach(p => { all.set(p, offset); offset += p.length; });
-        handleCertificateText(decodeShiftJIS(all));
+        group.pieces.forEach(p => { all.set(p, offset); offset += p.length; });
+        const result = handleCertificateText(decodeShiftJIS(all), group);
+        // 左の3つは満了日の有無でカードか紙かが分かるので、選んでいた書類と違えば正しい方へ移す
+        if (result && result.type === 'code3') {
+            group.doc = result.hasExpiry ? 'paper' : 'card';
+            // カードを選んだまま紙を読んでいたら、続きの右の2つも紙として数えるよう切り替える
+            if (result.hasExpiry && qrDoc === 'card') selectQRDoc('paper');
+            updateQRProgress();
+        }
     } else {
-        const got = pieces.filter(p => p !== null).length;
+        updateQRProgress();
+        const got = group.pieces.filter(p => p !== null).length;
         document.getElementById('qrStatus').textContent =
             `読み取りました（${got}/${code.seqSize}）。隣のQRコードも枠に入れてください`;
     }
 }
 
-// 揃ったデータを項目に分けて画面に反映する
+// 揃ったデータを項目に分けて画面に反映する。戻り値 { type: 'code2' | 'code3', hasExpiry }
 function handleCertificateText(text) {
     const statusEl = document.getElementById('qrStatus');
     const fields = text.split('/');
+    let result;
 
     if (fields.length >= 15) {
-        if (applyCertificateCode3(fields)) qrDone.expiry = true;
+        const hasExpiry = applyCertificateCode3(fields);
+        if (hasExpiry) qrDone.expiry = true;
         qrDone.code3 = true;
+        result = { type: 'code3', hasExpiry };
     } else if (fields.length >= 4 && fields[1].length === 12) {
         applyCertificateCode2(fields);
         qrDone.code2 = true;
+        result = { type: 'code2' };
     } else {
         // 電子車検証閲覧アプリなどのJSON
         try {
@@ -2190,30 +2206,35 @@ function handleCertificateText(text) {
         } catch {
             statusEl.textContent = '車検証のQRコードではないようです。車検証の右下のQRコードを写してください';
         }
-        return;
+        return null;
     }
 
     updateQRProgress();
     renderQRResults();
 
     if (qrDone.code2 && qrDone.code3 && qrDone.expiry) {
-        finishQRScan(); // 読み取れるものは全部揃った
+        // 読み取れるものは全部揃った（記録事項の紙を読み終えれば、カードは読まなくても全部揃う）
+        setTimeout(finishQRScan, 0); // 呼び出し元で書類の判定を済ませてから終える
     } else if (!qrDone.code3) {
         statusEl.textContent = 'ナンバー・車台番号を反映しました。続けて左側の3つ並びのQRコードを読み取ってください';
     } else if (!qrDone.code2) {
         statusEl.textContent = '型式・初度登録などを反映しました。続けて右側の2つ並びのQRコードを読み取ってください';
     } else {
-        statusEl.textContent = '車検満了日は「自動車検査証記録事項」（紙）のQRコードにだけ入っています。' +
-            '紙があれば左側の3つを読み取ってください。無ければ「完了」を押してください';
+        statusEl.textContent = '車検満了日は「自動車検査証記録事項」（紙）にだけ入っています。' +
+            '紙があれば上の「記録事項（紙）」を押して、紙のQRコードを読み取ってください。無ければ「完了」を押してください';
+        if (qrDoc === 'card') selectQRDoc('paper');
     }
+    return result;
 }
 
 // 読み取りを終えて一覧を見せる。全部揃ったとき（自動）と「完了」ボタンから呼ばれる
 function finishQRScan() {
+    if (qrFinished) return;
     qrFinished = true;
     stopQRScanner();
     document.getElementById('qrCameraArea').style.display = 'none';
     document.getElementById('qrFinishBtn').textContent = '閉じる';
+    updateQRProgress();
 
     const statusEl = document.getElementById('qrStatus');
     if (!qrDone.code2 && !qrDone.code3) {
@@ -2236,12 +2257,49 @@ function onQRFinishButton() {
     else finishQRScan();
 }
 
+// いま読んでいる書類を切り替える（チェック欄の見出しを押す）
+function selectQRDoc(doc) {
+    if (qrFinished) return;
+    qrDoc = doc;
+    updateQRProgress();
+}
+
+// 書類ごとのチェック欄。QRを1つ読むごとに □ が ☑ になる
 function updateQRProgress() {
     const el = document.getElementById('qrProgress');
     if (!el) return;
-    const mark = done => done ? '✅' : '⬜';
-    el.textContent = `${mark(qrDone.code2)} ナンバー・車台番号（右の2つ）　${mark(qrDone.code3)} 型式・初度登録（左の3つ）　` +
-        `${mark(qrDone.expiry)} 車検満了日（記録事項の紙の左の3つ）`;
+
+    // その書類・その並び（2つ／3つ）で読めたQRの位置
+    const readSlots = (doc, size) => {
+        const slots = new Array(size).fill(false);
+        Object.values(qrPieces)
+            .filter(g => g.doc === doc && g.size === size)
+            .forEach(g => g.pieces.forEach((p, i) => { if (p !== null) slots[i] = true; }));
+        return slots;
+    };
+    const row = (doc, size, label) => {
+        const slots = readSlots(doc, size);
+        const all = slots.every(Boolean);
+        return `<div class="qr-doc-row${all ? ' done' : ''}">
+            <span>${all ? '✅' : '⬜'} ${label}</span>
+            <span class="qr-slots">${slots.map(s => s ? '☑' : '☐').join('')}</span>
+        </div>`;
+    };
+    const doc = (id, title, rows) => `
+        <div class="qr-doc${qrDoc === id ? ' active' : ''}" onclick="selectQRDoc('${id}')">
+            <div class="qr-doc-title">${title}${qrDoc === id && !qrFinished ? '<span class="qr-doc-now">📷 いま読んでいる書類</span>' : ''}</div>
+            ${rows}
+        </div>`;
+
+    el.innerHTML = `<div class="qr-docs">
+        ${doc('card', '🪪 自動車検査証（カード）',
+            row('card', 2, '右の2つ（ナンバー・車台番号）') +
+            row('card', 3, '左の3つ（型式・初度登録）'))}
+        ${doc('paper', '📄 自動車検査証記録事項（紙）',
+            row('paper', 2, '右の2つ（ナンバー・車台番号）') +
+            row('paper', 3, '左の3つ（型式・初度登録・車検満了日）'))}
+    </div>
+    <p class="qr-docs-hint">読み取る書類を押して選んでから写してください。片方しか無ければ、読めた分で「完了」を押してください。</p>`;
 }
 
 // 読み取った項目の一覧。{ label, value, target(入力した欄の名前。入れていなければ空) }
