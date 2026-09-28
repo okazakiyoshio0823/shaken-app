@@ -1972,6 +1972,7 @@ let qrPieces = {};          // 連結の組ごとに読み取った断片 { "書
 let qrDoc = 'card';         // いま読んでいる書類 card=自動車検査証（カード） / paper=自動車検査証記録事項（紙）
 let qrDone = { code2: false, code3: false, expiry: false };
 let qrFinished = false;
+let qrResultSource = 'qr';  // 一覧の出どころ qr=QRコード / file=閲覧アプリのファイル
 
 // QRコードスキャナーモーダルを表示
 function showQRScannerModal() {
@@ -1993,6 +1994,7 @@ async function startQRScanner() {
     qrDoc = 'card';
     qrDone = { code2: false, code3: false, expiry: false };
     qrFinished = false;
+    qrResultSource = 'qr';
     qrResults = { code2: [], code3: [] };
     document.getElementById('qrCameraArea').style.display = '';
     document.getElementById('qrResult').style.display = 'none';
@@ -2198,14 +2200,7 @@ function handleCertificateText(text) {
         qrDone.code2 = true;
         result = { type: 'code2' };
     } else {
-        // 電子車検証閲覧アプリなどのJSON
-        try {
-            autoFillFromJSONData(JSON.parse(text));
-            closeQRScannerModal();
-            alert('車検証データを読み取りました！');
-        } catch {
-            statusEl.textContent = '車検証のQRコードではないようです。車検証の右下のQRコードを写してください';
-        }
+        statusEl.textContent = '車検証のQRコードではないようです。車検証の右下のQRコードを写してください';
         return null;
     }
 
@@ -2319,12 +2314,12 @@ function renderQRResults() {
                 <td>${r.target ? '✅ ' + escapeHtml(r.target) : ''}</td>
             </tr>`).join('')}
         </table>
-        <p class="qr-result-note">
+        ${qrResultSource === 'qr' ? `<p class="qr-result-note">
             ※ 使用者・所有者の氏名と住所、車名、車両重量、乗車定員などは、QRコードに入っていません（国交省の仕様）。
             車名は型式から車種データベースで探して入れています（見つからない車種は手で入れてください）。
             車両重量は軸重の合計から入れています。
-            氏名・住所まで取り込むには、「電子車検証データを読み込み」から車検証閲覧アプリのファイルを読み込んでください。
-        </p>`;
+            氏名・住所まで取り込むには、下の「📄 閲覧アプリのファイル」から車検証閲覧アプリで出力したファイルを読み込んでください。
+        </p>` : ''}`;
     el.style.display = 'block';
 }
 
@@ -2369,13 +2364,15 @@ const QR_FUEL = {
 
 // コード2: バージョン / 登録番号(全角12桁) / 標板区分 / 車台番号 / 原動機型式 / 帳票種別
 function applyCertificateCode2(f) {
-    // 登録番号は「標板文字4桁＋分類番号3桁＋カナ1桁＋一連番号4桁」を全角スペースで桁埋めしたもの
+    // 登録番号は「標板文字4桁＋分類番号3桁＋カナ1桁＋一連番号4桁」を全角スペースで桁埋めしたもの。
+    // 軽自動車は桁の位置がずれていることがあるので、まず区切りを探して分け、だめなら桁で分ける
     const plate = f[1];
     const trim = s => toHalfWidth(s).replace(/\s/g, '');
-    const region = plate.slice(0, 4).replace(/　/g, '');
-    const cls = trim(plate.slice(4, 7));
-    const kana = plate.slice(7, 8);
-    const serial = trim(plate.slice(8, 12));
+    const parsed = parsePlateText(plate);
+    const region = parsed ? parsed.region : plate.slice(0, 4).replace(/　/g, '');
+    const cls = parsed ? parsed.cls : trim(plate.slice(4, 7));
+    const kana = parsed ? parsed.kana : plate.slice(7, 8);
+    const serial = parsed ? parsed.serial : trim(plate.slice(8, 12));
     document.getElementById('plateRegion').value = region;
     document.getElementById('plateClass').value = cls;
     document.getElementById('plateHiragana').value = kana;
@@ -2499,7 +2496,11 @@ function fillCarFromModelCode(model) {
         for (const name of getCarNames(maker)) {
             for (const m of getCarModels(maker, name)) {
                 if (m.model === code) return selectCarModel(maker, name, m.model);
-                if (!hit && (code.startsWith(m.model) || m.model.startsWith(code))) hit = { maker, name, model: m.model };
+                // 前方一致は、違いが末尾の英字だけのとき（GYL15W と GYL15 など）に限る。
+                // RK170 と RK1 のように数字が続くものは別の車種
+                const rest = code.startsWith(m.model) ? code.slice(m.model.length)
+                    : m.model.startsWith(code) ? m.model.slice(code.length) : null;
+                if (!hit && rest !== null && /^[A-Z]+$/.test(rest)) hit = { maker, name, model: m.model };
             }
         }
     }
@@ -2516,134 +2517,236 @@ function selectCarModel(maker, name, model) {
     return { maker, name, model };
 }
 
-// JSONデータから自動入力（電子車検証エクスポート）
-function autoFillFromJSONData(data) {
-    // 電子車検証閲覧アプリからのエクスポート形式に対応
+// =============================================
+// 車検証閲覧アプリのファイル（車検証情報取込みファイル）の読み込み
+// 仕様: 国交省「車検証情報取込みファイル仕様書」とその別紙・サンプル
+//   JSON: { "CertInfoImportFileVersion": "1.0", "CertInfo": { "CarNo": "...", ... } }
+//   CSV : 1行目が同じ項目名、2行目が値（UTF-8 BOM付き）
+// QRと違い、使用者・所有者の氏名と住所、車名、車両重量まで入っている
+// =============================================
 
-    // ナンバープレート
-    if (data.registrationNumber) {
-        const parts = data.registrationNumber.split(' ');
-        if (parts[0]) document.getElementById('plateRegion').value = parts[0];
-        if (parts[1]) document.getElementById('plateClass').value = parts[1];
-        if (parts[2]) document.getElementById('plateHiragana').value = parts[2];
-        if (parts[3]) document.getElementById('plateSerial').value = parts[3];
-    }
-
-    // 車両情報
-    if (data.chassisNumber) document.getElementById('chassisNumber').value = data.chassisNumber;
-    if (data.firstRegistrationDate) document.getElementById('firstRegistration').value = data.firstRegistrationDate;
-    if (data.vehicleWeight) {
-        document.getElementById('vehicleWeight').value = data.vehicleWeight;
-        updateLegalFees();
-    }
-    if (data.vehicleName) document.getElementById('carName').value = data.vehicleName;
-    if (data.modelCode) document.getElementById('carModel').value = data.modelCode;
-
-    // 使用者情報（車検証：使用者欄）
-    if (data.userName) {
-        document.getElementById('userName').value = data.userName;
-    }
-    if (data.userAddress) {
-        document.getElementById('userAddress').value = data.userAddress;
-    }
-
-    // 所有者情報（車検証：所有者欄）
-    if (data.ownerName) {
-        document.getElementById('ownerName').value = data.ownerName;
-        // 所有者と使用者が同じかチェック
-        if (data.userName && data.ownerName === data.userName) {
-            document.getElementById('ownerSameAsUser').checked = true;
-        } else {
-            document.getElementById('ownerSameAsUser').checked = false;
-        }
-        toggleOwnerSameAsUser();
-    }
-    if (data.ownerAddress) {
-        document.getElementById('ownerAddress').value = data.ownerAddress;
-    }
-
-    // 使用者が未設定なら所有者を使用者にもコピー（従来データ形式の互換性）
-    if (!data.userName && data.ownerName) {
-        document.getElementById('userName').value = data.ownerName;
-    }
-    if (!data.userAddress && data.ownerAddress) {
-        document.getElementById('userAddress').value = data.ownerAddress;
-    }
-}
-
-// 電子車検証JSONファイルをインポート
-function importVehicleCertificateJSON() {
+// 「車検証閲覧アプリのファイル」ボタン
+function importVehicleCertificateFile() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json,.csv';
-    input.onchange = (e) => {
-        const file = e.target.files[0];
+    input.accept = '.json,.csv,application/json,text/csv';
+    input.onchange = () => {
+        const file = input.files[0];
         if (!file) return;
-
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = () => {
             try {
-                if (file.name.endsWith('.csv')) {
-                    // CSV形式（車検証閲覧アプリから出力）
-                    parseVehicleCertificateCSV(event.target.result);
-                } else {
-                    // JSON形式
-                    const data = JSON.parse(event.target.result);
-                    autoFillFromJSONData(data);
-                    alert('車検証データを読み込みました！');
-                }
+                const info = parseCertInfoFile(reader.result, file.name);
+                const rows = applyCertInfo(info);
+                showCertFileResults(rows);
             } catch (err) {
-                alert('ファイルの読み込みに失敗しました: ' + err.message);
+                console.error('車検証ファイルの読み込みエラー:', err);
+                alert('車検証閲覧アプリのファイルとして読み込めませんでした。\n' +
+                    '閲覧アプリで「JSON」または「CSV」形式で出力したファイルを選んでください。\n\n' + err.message);
             }
         };
-        reader.readAsText(file);
+        reader.readAsText(file, 'utf-8');
     };
     input.click();
 }
 
-// CSV形式の車検証データをパース
-function parseVehicleCertificateCSV(csvText) {
-    const lines = csvText.split('\n');
-    if (lines.length < 2) {
-        alert('CSVファイルにデータがありません');
-        return;
+// ファイルの中身から車検証情報（CertInfo）を取り出す
+function parseCertInfoFile(text, filename) {
+    text = text.replace(/^﻿/, '');
+    let info;
+    if (/\.csv$/i.test(filename) || text.trimStart().startsWith('"')) {
+        const rows = parseCSV(text);
+        if (rows.length < 2) throw new Error('CSVにデータ行がありません');
+        info = {};
+        rows[0].forEach((key, i) => { info[key] = rows[1][i] ?? ''; });
+    } else {
+        const json = JSON.parse(text);
+        info = json.CertInfo || json;
     }
+    if (!info.CarNo && !info.EntryNoCarNo) throw new Error('車台番号・登録番号が見つかりません');
+    return info;
+}
 
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-    const values = lines[1].split(',').map(v => v.trim().replace(/"/g, ''));
+// ダブルクォートで囲まれたCSV（項目内の改行・"" のエスケープに対応）
+function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (quoted) {
+            if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+            else if (c === '"') quoted = false;
+            else field += c;
+        } else if (c === '"') quoted = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\n' || c === '\r') {
+            if (c === '\r' && text[i + 1] === '\n') i++;
+            row.push(field); field = '';
+            if (row.some(f => f !== '')) rows.push(row);
+            row = [];
+        } else field += c;
+    }
+    row.push(field);
+    if (row.some(f => f !== '')) rows.push(row);
+    return rows;
+}
 
-    const data = {};
-    headers.forEach((h, i) => {
-        data[h] = values[i] || '';
-    });
+// 登録番号（例: "品川　１５０　お　１００７" "室蘭　お　　　　１" QRの "岡山　　３３３り８８８０"）を分ける。
+// 地名は「つくば」のようにひらがなのこともあるので、一連番号の直前のかな1文字を区切りにする
+function parsePlateText(s) {
+    const m = (s || '').trim().replace(/^[　\s]+/, '')
+        .match(/^(.+?)[　\s]*([０-９0-9Ａ-Ｚａ-ｚA-Za-z]{0,3})[　\s]*([ぁ-ゖ])[　\s]*([０-９0-9・]{1,4})[　\s]*$/);
+    if (!m) return null;
+    const hw = x => toHalfWidth(x).replace(/\s/g, '');
+    return { region: m[1].replace(/[　\s]/g, ''), cls: hw(m[2]), kana: m[3], serial: hw(m[4]) };
+}
 
-    // よくあるカラム名に対応
-    const mapping = {
-        '自動車登録番号': 'registrationNumber',
-        '登録番号': 'registrationNumber',
-        '車台番号': 'chassisNumber',
-        '車体番号': 'chassisNumber',
-        '初度登録年月': 'firstRegistrationDate',
-        '車両重量': 'vehicleWeight',
-        '車名': 'vehicleName',
-        '型式': 'modelCode',
-        '所有者氏名': 'ownerName',
-        '所有者名称': 'ownerName',
-        '所有者住所': 'ownerAddress',
-        '使用者氏名': 'userName',
-        '使用者名称': 'userName',
-        '使用者住所': 'userAddress'
-    };
+// 和暦（元号・年・月・日が別の項目）を YYYY-MM-DD に
+function certWarekiToISO(era, y, m, d) {
+    const base = { '令和': 2018, '平成': 1988, '昭和': 1925 }[(era || '').trim()];
+    const num = v => parseInt(toHalfWidth(v || '').trim(), 10);
+    if (!base || !num(y) || !num(m)) return '';
+    const pad = n => String(n).padStart(2, '0');
+    return `${base + num(y)}-${pad(num(m))}-${pad(num(d) || 1)}`;
+}
 
-    const normalizedData = {};
-    for (const [key, value] of Object.entries(data)) {
-        if (mapping[key]) {
-            normalizedData[mapping[key]] = value;
+// 車検証情報を画面に入れる。戻り値は一覧表示用の [{ label, value, target }]
+function applyCertInfo(d) {
+    const rows = [];
+    const set = (id, value) => { const el = document.getElementById(id); if (el && value) el.value = value; };
+    const hw = s => toHalfWidth(s || '').trim();
+    const isKei = d.RegistCarLightCar === '02';
+
+    // 登録番号
+    const plate = parsePlateText(d.EntryNoCarNo) || parsePlateText(d.TwodimensionCodeInfoEntryNoCarNo);
+    if (plate) {
+        set('plateRegion', plate.region);
+        document.getElementById('plateClass').value = plate.cls;
+        set('plateHiragana', plate.kana);
+        set('plateSerial', plate.serial);
+    }
+    rows.push({ label: isKei ? '車両番号' : '自動車登録番号', value: (d.EntryNoCarNo || '').replace(/　+/g, ' '), target: plate ? 'ナンバープレート' : '' });
+
+    // 型式・車名。車検証の「車名」はメーカー名（例: トヨタ）なので、車名は型式から車種データベースで探す
+    const model = d.TwodimensionCodeInfoModel || hw(d.Model);
+    let found = null;
+    if (model) {
+        found = fillCarFromModelCode(model);
+        document.getElementById('carModel').value = model; // データベースの型式で上書きされるので戻す
+    }
+    if (!found && d.CarName) {
+        set('carName', d.CarName);
+        // 車種が分からなくても、メーカーは選んでおく（車名・型式を選びやすくするため）
+        const maker = { 'ニッサン': '日産', 'ミツビシ': '三菱' }[d.CarName] || d.CarName;
+        if (getCarMakers().includes(maker)) {
+            document.getElementById('carMaker').value = maker;
+            onMakerChange();
         }
     }
+    rows.push({ label: '車名（車検証）', value: d.CarName, target: !found && d.CarName ? '車名（表示用）' : '' });
+    rows.push({ label: '車名（型式から判定）', value: found ? `${found.maker} ${found.name}` : '車種データベースに無い型式', target: found ? 'メーカー・車名' : '' });
+    rows.push({ label: '型式', value: model, target: model ? '型式（手入力）' : '' });
 
-    autoFillFromJSONData(normalizedData);
-    alert('車検証CSVデータを読み込みました！');
+    const chassis = d.TwodimensionCodeInfoCarNo || hw(d.CarNo);
+    set('chassisNumber', chassis);
+    rows.push({ label: '車台番号', value: chassis, target: chassis ? '車台番号' : '' });
+    rows.push({ label: '原動機の型式', value: d.TwodimensionCodeInfoEngineModel || hw(d.EngineModel) });
+
+    const specify = hw(d.ModelSpecifyNo), classify = hw(d.ClassifyAroundNo);
+    set('typeDesignationNumber', specify);
+    set('categoryClassificationNumber', classify);
+    rows.push({ label: '型式指定番号', value: specify, target: specify ? '型式指定番号' : '' });
+    rows.push({ label: '類別区分番号', value: classify, target: classify ? '類別区分番号' : '' });
+
+    // 初度登録年月（軽自動車は初度検査年月）
+    const first = isKei
+        ? certWarekiToISO(d.FirstexamdateE, d.FirstexamdateY, d.FirstexamdateM)
+        : certWarekiToISO(d.FirstregistdateE, d.FirstregistdateY, d.FirstregistdateM);
+    if (first) {
+        set('firstRegistration', first);
+        if (typeof syncSeirekiToWareki === 'function') syncSeirekiToWareki('firstRegistration');
+    }
+    rows.push({ label: isKei ? '初度検査年月' : '初度登録年月', value: first ? first.slice(0, 7).replace('-', '年') + '月' : '', target: first ? '初度登録年月日' : '' });
+
+    // 有効期間の満了する日
+    const expiry = certWarekiToISO(d.ValidPeriodExpirdateE, d.ValidPeriodExpirdateY, d.ValidPeriodExpirdateM, d.ValidPeriodExpirdateD);
+    set('shakenExpiryDate', expiry);
+    rows.push({ label: '有効期間の満了する日', value: expiry ? qrDateLabel(expiry.slice(2).replace(/-/g, '')) : '', target: expiry ? '車検満了日' : '' });
+
+    // 車両重量
+    const weight = parseInt(hw(d.CarWgt), 10);
+    const weightSelect = document.getElementById('vehicleWeight');
+    if (isKei) weightSelect.value = 'kei';
+    else if (weight > 0) {
+        weightSelect.value = weight <= 500 ? '500' : weight <= 1000 ? '1000' : weight <= 1500 ? '1500'
+            : weight <= 2000 ? '2000' : weight <= 2500 ? '2500' : '3000';
+    }
+    rows.push({ label: '車両重量', value: weight ? `${weight}kg` : '', target: isKei || weight ? (isKei ? '車両重量（軽自動車）' : '車両重量') : '' });
+
+    // 使用者・所有者。
+    // 登録車: 使用者が所有者と同じときは使用者欄が「＊＊＊」。軽自動車: 所有者欄が「使用者に同じ」
+    const nameOf = (high, low) => (high || low || '').trim();
+    let userName = nameOf(d.UsernameHighLevelChar, d.UsernameLowLevelChar);
+    let userAddr = isKei ? (d.UserAddress || '') : `${d.UserAddressChar || ''}${d.UserAddressNumValue || ''}`;
+    let ownerName = nameOf(d.OwnernameHighLevelChar, d.OwnernameLowLevelChar);
+    let ownerAddr = isKei ? (d.OwnerAddress || '') : `${d.OwnerAddressChar || ''}${d.OwnerAddressNumValue || ''}`;
+    const same = v => /^[＊*]+$/.test(v.trim()) || /使用者(住所)?に同じ/.test(v);
+    if (same(userName)) userName = ownerName;
+    if (same(userAddr) || !userAddr.trim()) userAddr = ownerAddr;
+    if (same(ownerName)) ownerName = userName;
+    if (same(ownerAddr)) ownerAddr = userAddr;
+
+    set('userName', userName);
+    set('userAddress', userAddr);
+    const sameAsUser = !ownerName || ownerName === userName;
+    document.getElementById('ownerSameAsUser').checked = sameAsUser;
+    if (!sameAsUser) {
+        set('ownerName', ownerName);
+        set('ownerAddress', ownerAddr);
+    }
+    toggleOwnerSameAsUser();
+    rows.push({ label: '使用者の氏名又は名称', value: userName, target: userName ? '使用者氏名' : '' });
+    rows.push({ label: '使用者の住所', value: userAddr, target: userAddr ? '使用者住所' : '' });
+    rows.push({ label: '所有者の氏名又は名称', value: ownerName, target: sameAsUser ? '（使用者と同じ）' : '所有者氏名' });
+    rows.push({ label: '所有者の住所', value: ownerAddr, target: sameAsUser ? '（使用者と同じ）' : '所有者住所' });
+
+    // 画面に入れる欄は無いが、見られるように一覧に出す
+    const show = (label, value, unit = '') => {
+        value = (value || '').trim();
+        if (value && value !== '-') rows.push({ label, value: value + unit });
+    };
+    show('使用の本拠の位置', isKei ? d.Useheadqrter : `${d.UseheadqrterChar || ''}${d.UseheadqrterNumValue || ''}`);
+    show('自動車の種別', d.CarKind);
+    show('用途', d.Use);
+    show('自家用・事業用の別', d.PrivateBusiness);
+    show('車体の形状', d.CarShape);
+    show('乗車定員', d.Cap, '人');
+    show('最大積載量', d.Maxloadage, 'kg');
+    show('車両総重量', d.CarTotalWgt, 'kg');
+    show('長さ', d.Length, 'cm');
+    show('幅', d.Width, 'cm');
+    show('高さ', d.Height, 'cm');
+    show('総排気量又は定格出力', d.Displacement, isKei ? (d.DisplacementUnit || '') : 'L');
+    show('燃料の種類', d.FuelClass);
+    show('備考', (d.NoteInfo || '').replace(/\\n|\n/g, ' ／ '));
+
+    if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
+    updateLegalFees();
+    return rows;
+}
+
+// 読み込んだ内容を、QR読み取りと同じ画面で一覧にして見せる
+function showCertFileResults(rows) {
+    stopQRScanner();
+    qrFinished = true;
+    qrResultSource = 'file';
+    qrResults = { code2: rows, code3: [] };
+    document.getElementById('qrScannerModal').classList.add('active');
+    document.getElementById('qrCameraArea').style.display = 'none';
+    document.getElementById('qrProgress').innerHTML = '';
+    document.getElementById('qrFinishBtn').textContent = '閉じる';
+    document.getElementById('qrStatus').textContent = '✅ 車検証閲覧アプリのファイルを読み込みました。読み込んだ内容は下の通りです';
+    renderQRResults();
 }
 
 // 所有者「使用者と同じ」チェックボックスの切り替え
@@ -3705,234 +3808,6 @@ function checkReminders() {
             btn.style.boxShadow = '0 0 10px rgba(230, 126, 34, 0.5)';
         }
     }
-}
-
-// =============================================
-// 車検証JSONインポート機能
-// =============================================
-
-function showJsonImportModal() {
-    // リセット状態
-    document.getElementById('jsonImportResult').style.display = 'none';
-    document.getElementById('jsonImportError').style.display = 'none';
-    document.getElementById('jsonFileInput').value = '';
-    document.getElementById('jsonImportModal').classList.add('active');
-
-    // ドラッグ＆ドロップ設定
-    const dropZone = document.getElementById('jsonDropZone');
-    dropZone.ondragover = (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#1a5a8a';
-        dropZone.style.background = '#f0f7ff';
-    };
-    dropZone.ondragleave = (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#ccc';
-        dropZone.style.background = 'transparent';
-    };
-    dropZone.ondrop = (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#ccc';
-        dropZone.style.background = 'transparent';
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            processJsonFile(files[0]);
-        }
-    };
-}
-
-function closeJsonImportModal() {
-    document.getElementById('jsonImportModal').classList.remove('active');
-}
-
-function handleJsonFileSelect(event) {
-    const file = event.target.files[0];
-    if (file) {
-        processJsonFile(file);
-    }
-}
-
-function processJsonFile(file) {
-    const resultDiv = document.getElementById('jsonImportResult');
-    const errorDiv = document.getElementById('jsonImportError');
-    const previewEl = document.getElementById('jsonImportPreview');
-    const errorText = document.getElementById('jsonImportErrorText');
-
-    resultDiv.style.display = 'none';
-    errorDiv.style.display = 'none';
-
-    if (!file.name.endsWith('.json')) {
-        errorDiv.style.display = 'block';
-        errorText.textContent = 'JSONファイルを選択してください。';
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = JSON.parse(e.target.result);
-            applyVehicleCertificateData(data);
-
-            // 成功表示
-            resultDiv.style.display = 'block';
-            const appliedInfo = [];
-            if (data['自動車登録番号'] || data['登録番号']) appliedInfo.push(`登録番号: ${data['自動車登録番号'] || data['登録番号']}`);
-            if (data['車名']) appliedInfo.push(`車名: ${data['車名']}`);
-            if (data['有効期間の満了する日']) appliedInfo.push(`有効期間: ${data['有効期間の満了する日']}`);
-            if (data['使用者の氏名又は名称']) appliedInfo.push(`使用者: ${data['使用者の氏名又は名称']}`);
-            previewEl.textContent = appliedInfo.join('\n') || 'データを適用しました';
-
-        } catch (err) {
-            errorDiv.style.display = 'block';
-            errorText.textContent = 'JSONの解析に失敗しました: ' + err.message;
-        }
-    };
-    reader.onerror = () => {
-        errorDiv.style.display = 'block';
-        errorText.textContent = 'ファイルの読み込みに失敗しました。';
-    };
-    reader.readAsText(file);
-}
-
-function applyVehicleCertificateData(data) {
-    // 車検証閲覧アプリのJSONフォーマットに対応
-    // 国交省仕様: https://www.mlit.go.jp/jidosha/denshishakennsho.html
-
-    // 登録番号（ナンバープレート）の解析
-    const plateNumber = data['自動車登録番号'] || data['登録番号'] || data['車両番号'] || '';
-    if (plateNumber) {
-        // 例: "品川 500 あ 1234" 形式を分解
-        const plateMatch = plateNumber.match(/^(.+?)\s*(\d{1,3})\s*([あ-ん])\s*(\d{1,4})$/);
-        if (plateMatch) {
-            const plateRegionEl = document.getElementById('plateRegion');
-            const plateClassEl = document.getElementById('plateClass');
-            const plateHiraganaEl = document.getElementById('plateHiragana');
-            const plateSerialEl = document.getElementById('plateSerial');
-
-            if (plateRegionEl) plateRegionEl.value = plateMatch[1].trim();
-            if (plateClassEl) plateClassEl.value = plateMatch[2];
-            if (plateHiraganaEl) {
-                const hiragana = plateMatch[3];
-                const options = plateHiraganaEl.options;
-                for (let i = 0; i < options.length; i++) {
-                    if (options[i].value === hiragana) {
-                        plateHiraganaEl.selectedIndex = i;
-                        break;
-                    }
-                }
-            }
-            if (plateSerialEl) plateSerialEl.value = plateMatch[4];
-        }
-    }
-
-    // 車名
-    if (data['車名']) {
-        const carNameEl = document.getElementById('carName');
-        if (carNameEl) carNameEl.value = data['車名'];
-    }
-
-    // 型式
-    if (data['型式']) {
-        const carModelEl = document.getElementById('carModel');
-        if (carModelEl) carModelEl.value = data['型式'];
-    }
-
-    // 車台番号
-    if (data['車台番号']) {
-        const chassisEl = document.getElementById('chassisNumber');
-        if (chassisEl) chassisEl.value = data['車台番号'];
-    }
-
-    // 車両重量
-    if (data['車両重量'] || data['車両総重量']) {
-        const weightStr = data['車両重量'] || data['車両総重量'];
-        const weightMatch = weightStr.match(/(\d+)/);
-        if (weightMatch) {
-            const weightKg = parseInt(weightMatch[1]);
-            const weightClassEl = document.getElementById('weightClass');
-            if (weightClassEl) {
-                if (weightKg <= 500) weightClassEl.value = '~500';
-                else if (weightKg <= 1000) weightClassEl.value = '~1000';
-                else if (weightKg <= 1500) weightClassEl.value = '~1500';
-                else if (weightKg <= 2000) weightClassEl.value = '~2000';
-                else if (weightKg <= 2500) weightClassEl.value = '~2500';
-                else weightClassEl.value = '~3000';
-                weightClassEl.dispatchEvent(new Event('change'));
-            }
-        }
-    }
-
-    // 初度登録年月
-    if (data['初度登録年月'] || data['初度検査年月']) {
-        const regDate = data['初度登録年月'] || data['初度検査年月'];
-        const firstRegEl = document.getElementById('firstRegistration');
-        if (firstRegEl) {
-            const convertedDate = convertJapaneseDate(regDate);
-            if (convertedDate) {
-                firstRegEl.value = convertedDate;
-                firstRegEl.dispatchEvent(new Event('change'));
-            }
-        }
-    }
-
-    // 使用者情報
-    if (data['使用者の氏名又は名称']) {
-        const userNameEl = document.getElementById('userName');
-        if (userNameEl) userNameEl.value = data['使用者の氏名又は名称'];
-    }
-    if (data['使用者の住所']) {
-        const userAddressEl = document.getElementById('userAddress');
-        if (userAddressEl) userAddressEl.value = data['使用者の住所'];
-    }
-
-    // 所有者情報
-    if (data['所有者の氏名又は名称']) {
-        const ownerNameEl = document.getElementById('ownerName');
-        if (ownerNameEl) ownerNameEl.value = data['所有者の氏名又は名称'];
-    }
-    if (data['所有者の住所']) {
-        const ownerAddressEl = document.getElementById('ownerAddress');
-        if (ownerAddressEl) ownerAddressEl.value = data['所有者の住所'];
-    }
-
-    // 法定費用を再計算
-    if (typeof calculateLegalFees === 'function') {
-        calculateLegalFees();
-    }
-
-    // 2秒後にモーダルを自動で閉じる
-    setTimeout(() => {
-        closeJsonImportModal();
-    }, 2000);
-}
-
-// 和暦→西暦変換ヘルパー
-function convertJapaneseDate(dateStr) {
-    if (!dateStr) return null;
-
-    // 既に西暦形式の場合
-    const westernMatch = dateStr.match(/(\d{4})[年\-\/](\d{1,2})/);
-    if (westernMatch) {
-        return `${westernMatch[1]}-${westernMatch[2].padStart(2, '0')}`;
-    }
-
-    // 和暦変換
-    const eraPatterns = [
-        { pattern: /令和(\d+)年(\d{1,2})/, base: 2018 },
-        { pattern: /平成(\d+)年(\d{1,2})/, base: 1988 },
-        { pattern: /昭和(\d+)年(\d{1,2})/, base: 1925 }
-    ];
-
-    for (const era of eraPatterns) {
-        const match = dateStr.match(era.pattern);
-        if (match) {
-            const year = era.base + parseInt(match[1]);
-            const month = match[2].padStart(2, '0');
-            return `${year}-${month}`;
-        }
-    }
-
-    return null;
 }
 
 // ==========================================

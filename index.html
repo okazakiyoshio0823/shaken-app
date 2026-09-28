@@ -434,7 +434,6 @@
             <button type="button" class="btn btn-success" onclick="saveEstimateToHistory()">💾 見積を保存</button>
             <button type="button" class="btn btn-info" onclick="showEstimateHistoryModal()">📊 履歴</button>
             <button type="button" class="btn btn-secondary" onclick="showTemplateModal()">📋 テンプレート</button>
-            <button type="button" class="btn btn-success" onclick="showJsonImportModal()">📥 車検証JSON</button>
             <span id="syncStatus" class="sync-status" onclick="syncEstimates(false)"
                 title="クリックすると他の端末と同期します"></span>
         </div>
@@ -562,8 +561,8 @@
                 <div class="qr-scan-buttons" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
                     <button type="button" class="btn btn-primary" onclick="showQRScannerModal()"
                         style="background:linear-gradient(135deg,#4CAF50,#45a049);">📷 車検証QRコードをスキャン</button>
-                    <button type="button" class="btn btn-outline" onclick="importVehicleCertificateJSON()">📄
-                        電子車検証データを読み込み</button>
+                    <button type="button" class="btn btn-outline" onclick="importVehicleCertificateFile()">📄
+                        閲覧アプリのファイルを読み込み（JSON・CSV）</button>
                 </div>
                 <div class="form-group">
                     <label>ナンバープレート <span class="required">*</span></label>
@@ -1132,6 +1131,7 @@
             <div class="modal-footer">
                 <!-- 読み取り中は「完了」（読めた分で終える）、終わったら「閉じる」 -->
                 <button class="btn btn-outline" onclick="readQRFromPhoto()">🖼️ 写真から読み取る</button>
+                <button class="btn btn-outline" onclick="importVehicleCertificateFile()">📄 閲覧アプリのファイル</button>
                 <button class="btn btn-primary" id="qrFinishBtn" onclick="onQRFinishButton()">完了</button>
             </div>
         </div>
@@ -1236,45 +1236,6 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeLineShareModal()">閉じる</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- JSON インポートモーダル -->
-    <div class="modal-overlay" id="jsonImportModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>📥 車検証JSON読み込み</h3>
-                <button class="modal-close" onclick="closeJsonImportModal()">×</button>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom:16px;color:#666;font-size:0.9em;">
-                    📱 iPhoneまたはAndroidの「車検証閲覧アプリ」でICタグを読み取り、<br>
-                    JSONファイルをエクスポートして、ここで読み込みます。
-                </p>
-                <div style="border:2px dashed #ccc;border-radius:8px;padding:24px;text-align:center;margin-bottom:16px;"
-                    id="jsonDropZone">
-                    <p style="color:#666;margin-bottom:12px;">JSONファイルをここにドラッグ＆ドロップ</p>
-                    <p style="color:#999;font-size:0.85em;margin-bottom:12px;">または</p>
-                    <label class="btn btn-primary" style="cursor:pointer;">
-                        📂 ファイルを選択
-                        <input type="file" id="jsonFileInput" accept=".json,application/json" style="display:none;"
-                            onchange="handleJsonFileSelect(event)">
-                    </label>
-                </div>
-                <div id="jsonImportResult"
-                    style="display:none;padding:12px;background:#e8f5e9;border-radius:8px;margin-top:12px;">
-                    <p style="color:#2e7d32;font-weight:600;">✅ 読み込み成功！</p>
-                    <pre id="jsonImportPreview" style="margin-top:8px;font-size:0.85em;white-space:pre-wrap;"></pre>
-                </div>
-                <div id="jsonImportError"
-                    style="display:none;padding:12px;background:#ffebee;border-radius:8px;margin-top:12px;">
-                    <p style="color:#c62828;font-weight:600;">❌ エラー</p>
-                    <p id="jsonImportErrorText" style="color:#c62828;font-size:0.9em;"></p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeJsonImportModal()">閉じる</button>
             </div>
         </div>
     </div>
