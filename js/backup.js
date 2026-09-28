@@ -1,6 +1,7 @@
 // ============================================
 // バックアップ機能
 // 見積・顧客・テンプレート・会社情報・テーマ設定をまとめて退避／復元する
+// 保存先はデスクトップの「車検データ\バックアップ」（savefolder.js）
 // ============================================
 
 // バックアップ対象のlocalStorageキー
@@ -14,6 +15,20 @@ const BACKUP_KEYS = [
 
 const BACKUP_LAST_KEY = 'shaken_last_backup'; // 最終バックアップ日時（バックアップ対象外）
 
+// 画面に読み込んでいるお客様一覧（サーバーの分も含む）。
+// お客様はサーバーに保存されていて localStorage にはほとんど残らないため、こちらを使う
+function currentCustomersForBackup() {
+    if (typeof savedCustomers !== 'undefined' && Array.isArray(savedCustomers) && savedCustomers.length > 0) {
+        return savedCustomers;
+    }
+    try {
+        const v = JSON.parse(localStorage.getItem('shaken_customers') || '[]');
+        return Array.isArray(v) ? v : [];
+    } catch (e) {
+        return [];
+    }
+}
+
 // 現在のデータを1つのオブジェクトにまとめる
 function collectBackupData() {
     const data = {};
@@ -21,10 +36,11 @@ function collectBackupData() {
         const value = localStorage.getItem(key);
         if (value !== null) data[key] = value;
     });
+    data['shaken_customers'] = JSON.stringify(currentCustomersForBackup());
 
     return {
         type: 'shaken_full_backup',
-        version: '1.0',
+        version: '1.1',
         exportDate: new Date().toISOString(),
         data: data
     };
@@ -43,38 +59,58 @@ function countBackupItems() {
 
     return {
         estimates: count('shaken_estimates'),
-        customers: count('shaken_customers'),
+        customers: currentCustomersForBackup().length,
         templates: count('shaken_templates')
     };
 }
 
 // --------------------------------------------
-// ファイルへ保存 / ファイルから復元
+// 保存フォルダ（車検データ\バックアップ）へ保存 / ファイルから復元
 // --------------------------------------------
 
-function exportBackupToFile() {
-    const payload = collectBackupData();
-    const counts = countBackupItems();
+// 同じ日のうちは上書きして、1日1ファイルにする
+function backupFileName() {
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    return `バックアップ_${stamp}.json`;
+}
 
+function backupBlob() {
+    return new Blob([JSON.stringify(collectBackupData(), null, 2)], { type: 'application/json' });
+}
+
+// 見積を保存するたびに裏で呼ぶ。保存フォルダが決まっていなければ何もしない
+async function backupToDataFolder(folder) {
+    if (!folder) return { ok: false };
+    try {
+        const path = await writeToDataFolder(folder, ['バックアップ'], backupFileName(), backupBlob());
+        markBackupDone();
+        return { ok: true, path };
+    } catch (e) {
+        console.error('バックアップの書き込みに失敗:', e);
+        return { ok: false };
+    }
+}
+
+// 「今すぐバックアップ」ボタン
+async function exportBackupToFile() {
+    let folder = await getDataFolder(true);
+    if (!folder && hasDataFolderSupport()) {
+        if (!confirm('バックアップの保存先がまだ決まっていません。\n\n次の画面で「デスクトップ」を選ぶと、その中に「車検データ」フォルダを作って保存します。')) return;
+        folder = await chooseDataFolder();
+        if (!folder) return;
+    }
+
+    const counts = countBackupItems();
     if (counts.estimates === 0 && counts.customers === 0) {
         if (!confirm('保存されている見積・顧客データがありません。\nこのままバックアップしますか？')) return;
     }
 
-    const d = new Date();
-    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `車検見積りバックアップ_${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
+    const result = await saveToDataFolderOrDownload(folder, ['バックアップ'], backupFileName(), backupBlob());
     markBackupDone();
-    alert(`バックアップを保存しました。\n\n見積 ${counts.estimates}件 / 顧客 ${counts.customers}件 / テンプレート ${counts.templates}件\n\nダウンロードフォルダのファイルを、USBやクラウドなど別の場所にも控えておくと安全です。`);
+
+    const where = result.where === 'folder' ? result.path : `ダウンロード\\${result.path}`;
+    alert(`バックアップを保存しました。\n\n見積 ${counts.estimates}件 / 顧客 ${counts.customers}件 / テンプレート ${counts.templates}件\n\n📁 ${where}`);
 }
 
 function importBackupFromFile() {
@@ -101,8 +137,25 @@ function importBackupFromFile() {
     input.click();
 }
 
+// バックアップのお客様のうち、サーバーから消えている方だけを残す。
+// 手元のIDに付け替えておけば、再読み込み時に migrateLocalCustomersToServer がサーバーへ送り直す。
+// サーバーに残っている方まで送ると二重登録になるため外す
+async function customersToRestore(backupCustomers) {
+    let serverIds;
+    try {
+        serverIds = new Set((await window.shakenApi.getCustomers()).map(c => c.id));
+    } catch (e) {
+        return backupCustomers; // サーバーにつながらない。そのまま手元に置いておく
+    }
+
+    const isServerId = (id) => typeof id === 'string' && id.length > 20;
+    return backupCustomers
+        .filter(c => !(isServerId(c.id) && serverIds.has(c.id)))
+        .map((c, i) => isServerId(c.id) ? { ...c, id: Date.now() + i } : c);
+}
+
 // バックアップ内容を実際にlocalStorageへ書き戻す
-function restoreBackup(payload, label) {
+async function restoreBackup(payload, label) {
     if (!payload || payload.type !== 'shaken_full_backup' || !payload.data) {
         alert('このファイルは見積アプリのバックアップではありません。');
         return;
@@ -127,118 +180,30 @@ function restoreBackup(payload, label) {
         `　見積 ${countIn('shaken_estimates')}件 / 顧客 ${countIn('shaken_customers')}件\n\n` +
         '現在のデータ:\n' +
         `　見積 ${now.estimates}件 / 顧客 ${now.customers}件\n\n` +
-        '⚠️ 現在のデータはすべて上書きされ、元に戻せません。\n' +
+        '⚠️ 見積・テンプレート・設定は上書きされ、元に戻せません。\n' +
+        '（お客様は、サーバーから消えている方だけを戻します）\n' +
         '実行してよろしいですか？';
 
     if (!confirm(message)) return;
 
-    BACKUP_KEYS.forEach(key => {
-        if (payload.data[key] !== undefined) {
+    for (const key of BACKUP_KEYS) {
+        if (payload.data[key] === undefined) continue;
+        if (key === 'shaken_customers') {
+            let list;
+            try {
+                list = JSON.parse(payload.data[key] || '[]');
+            } catch (e) {
+                list = [];
+            }
+            const restored = await customersToRestore(Array.isArray(list) ? list : []);
+            localStorage.setItem(key, JSON.stringify(restored));
+        } else {
             localStorage.setItem(key, payload.data[key]);
         }
-    });
+    }
 
     alert('復元しました。画面を再読み込みします。');
     location.reload();
-}
-
-// --------------------------------------------
-// サーバーへの自動バックアップ
-// 保存先は server/backups/（OneDrive配下なので自動で同期される）
-// --------------------------------------------
-
-function getBackupHeaders() {
-    const token = localStorage.getItem('authToken');
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-    };
-}
-
-// silent=true のときは成功時に何も表示しない（保存のたびに裏で走らせる用）
-async function backupToServer(silent = true) {
-    try {
-        const res = await fetch(`${API_BASE_URL}/backup`, {
-            method: 'POST',
-            headers: getBackupHeaders(),
-            body: JSON.stringify(collectBackupData())
-        });
-
-        if (res.status === 401) {
-            // トークン切れ。黙って失敗するとバックアップされていないことに気づけないため必ず知らせる
-            if (!silent) alert('ログインの有効期限が切れています。\n一度ログインし直すと自動バックアップが再開します。');
-            return { ok: false, reason: 'auth' };
-        }
-
-        if (!res.ok) {
-            if (!silent) alert('サーバーへのバックアップに失敗しました。');
-            return { ok: false, reason: 'server' };
-        }
-
-        const result = await res.json();
-        markBackupDone();
-        if (!silent) alert(`サーバーにバックアップしました。\n\nファイル名: ${result.filename}`);
-        return { ok: true, filename: result.filename };
-
-    } catch (err) {
-        // サーバーが起動していない場合はここに来る
-        if (!silent) alert('サーバーに接続できませんでした。\nサーバーが起動しているか確認してください。');
-        return { ok: false, reason: 'offline' };
-    }
-}
-
-// サーバー上のバックアップ一覧を取得して画面に出す
-async function loadServerBackups() {
-    const container = document.getElementById('serverBackupList');
-    if (!container) return;
-
-    container.innerHTML = '<div style="color:#999;padding:12px;">読み込み中...</div>';
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/backup`, { headers: getBackupHeaders() });
-
-        if (res.status === 401) {
-            container.innerHTML = '<div style="color:#c00;padding:12px;">ログインの有効期限が切れています。ログインし直してください。</div>';
-            return;
-        }
-        if (!res.ok) throw new Error('取得失敗');
-
-        const result = await res.json();
-
-        if (!result.backups || result.backups.length === 0) {
-            container.innerHTML = '<div style="color:#999;padding:12px;">サーバー上のバックアップはまだありません。</div>';
-            return;
-        }
-
-        container.innerHTML = result.backups.map(b => {
-            const date = new Date(b.savedAt).toLocaleString('ja-JP');
-            const kb = Math.max(1, Math.round(b.size / 1024));
-            return `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #eee;gap:8px;">
-                    <div>
-                        <div style="font-weight:bold;">${date}</div>
-                        <div style="font-size:0.85em;color:#777;">${b.filename} (${kb}KB)</div>
-                    </div>
-                    <button class="btn btn-outline btn-sm" onclick="restoreFromServer('${b.filename}')">復元</button>
-                </div>
-            `;
-        }).join('');
-
-    } catch (err) {
-        container.innerHTML = '<div style="color:#c00;padding:12px;">サーバーに接続できませんでした。サーバーが起動しているか確認してください。</div>';
-    }
-}
-
-async function restoreFromServer(filename) {
-    try {
-        const res = await fetch(`${API_BASE_URL}/backup/${filename}`, { headers: getBackupHeaders() });
-        if (!res.ok) throw new Error('取得失敗');
-
-        const payload = await res.json();
-        restoreBackup(payload, filename);
-    } catch (err) {
-        alert('バックアップの取得に失敗しました。');
-    }
 }
 
 // --------------------------------------------
@@ -283,7 +248,7 @@ function showBackupModal() {
     }
 
     updateBackupStatus();
-    loadServerBackups();
+    updateDataFolderStatus();
     document.getElementById('backupModal').classList.add('active');
 }
 

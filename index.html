@@ -407,7 +407,7 @@
     <div class="app-container">
         <!-- バックアップ催促バー（7日以上バックアップしていない場合のみ表示） -->
         <div id="backupReminder" class="no-print backup-reminder">
-            <span class="backup-reminder-text">⚠️ しばらくバックアップしていません。データはこのブラウザ内にのみ保存されています。</span>
+            <span class="backup-reminder-text">⚠️ 7日以上バックアップしていません。デスクトップの「車検データ」に控えを取っておきましょう。</span>
             <button class="btn btn-sm btn-success" onclick="showBackupModal()">今すぐバックアップ</button>
             <button type="button" class="backup-reminder-close" onclick="dismissBackupReminder()"
                 title="閉じる（1週間表示しません）" aria-label="閉じる">×</button>
@@ -431,7 +431,6 @@
                 <option value="invoice">📄 請求書</option>
                 <option value="receipt">🧾 領収書</option>
             </select>
-            <button type="button" class="btn btn-success" onclick="saveEstimateToHistory()">💾 見積を保存</button>
             <button type="button" class="btn btn-info" onclick="showEstimateHistoryModal()">📊 履歴</button>
             <button type="button" class="btn btn-secondary" onclick="showTemplateModal()">📋 テンプレート</button>
             <span id="syncStatus" class="sync-status" onclick="syncEstimates(false)"
@@ -483,12 +482,6 @@
                     <button type="button" class="btn btn-primary" onclick="showCustomerListModal()">📂
                         保存済みデータから読み込み</button>
                     <button type="button" class="btn btn-success" onclick="saveCustomerData()">💾 このお客様を保存</button>
-                </div>
-                <div class="customer-buttons" style="margin-top:8px;">
-                    <button type="button" class="btn btn-outline" onclick="exportCustomersToFile()">📥
-                        ファイルへエクスポート(ﾅﾝﾊﾞｰﾌﾟﾚｰﾄ打込み必須)</button>
-                    <button type="button" class="btn btn-outline" onclick="importCustomersFromFile()">📤
-                        ファイルからインポート</button>
                 </div>
 
                 <!-- 使用者情報（車検証：使用者欄） -->
@@ -1166,8 +1159,6 @@
                     <input type="text" class="form-control" id="estimateHistorySearch"
                         placeholder="🔍 名前・ナンバー・車名・金額で検索..." oninput="searchEstimateHistory()"
                         style="flex:1;min-width:200px;">
-                    <button class="btn btn-success" onclick="saveEstimateToHistory()">💾 現在の見積を保存</button>
-                    <button class="btn btn-outline" onclick="saveAsTemplate()">📋 テンプレートとして保存</button>
                 </div>
                 <div class="estimate-history-list" id="estimateHistoryItems" style="max-height:400px;overflow-y:auto;">
                 </div>
@@ -1254,26 +1245,26 @@
                     <div id="backupStatusText" style="font-size:0.9em;">-</div>
                 </div>
 
-                <div style="font-weight:bold;margin-bottom:8px;">① ファイルに保存する（おすすめ）</div>
+                <div style="font-weight:bold;margin-bottom:8px;">保存フォルダ</div>
                 <p style="font-size:0.9em;color:#666;margin:0 0 8px;">
-                    見積・顧客・テンプレートをまとめて1つのファイルに書き出します。
-                    USBやクラウドに置いておけば、PCが壊れても復旧できます。
+                    デスクトップの「車検データ」フォルダに、次のように保存します。<br>
+                    ・バックアップ … 見積を保存するたびに自動で控えを取ります（1日1ファイル）<br>
+                    ・見積書PDF … 「PDF出力」で作ったPDFを年ごとに並べます
                 </p>
+                <div id="dataFolderStatus" style="font-size:0.9em;margin-bottom:8px;">-</div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
-                    <button class="btn btn-success" onclick="exportBackupToFile()">📥 ファイルに保存</button>
-                    <button class="btn btn-outline" onclick="importBackupFromFile()">📤 ファイルから復元</button>
+                    <button class="btn btn-outline" onclick="chooseDataFolder()">📁 保存先を選ぶ</button>
                 </div>
 
-                <div style="font-weight:bold;margin-bottom:8px;">② サーバーの自動バックアップ</div>
+                <div style="font-weight:bold;margin-bottom:8px;">バックアップ</div>
                 <p style="font-size:0.9em;color:#666;margin:0 0 8px;">
-                    見積を保存するたびに、このPCの server/backups フォルダへ自動で控えを取ります。
-                    OneDriveフォルダ内にあるため、そのままクラウドにも同期されます。
+                    見積・顧客・テンプレートをまとめて1つのファイルにします。
+                    ファイルにはお客様の個人情報が入っているため、人に渡したり、アプリのフォルダに置いたりしないでください。
                 </p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-                    <button class="btn btn-primary" onclick="backupToServer(false)">☁️ 今すぐサーバーに保存</button>
-                    <button class="btn btn-outline" onclick="loadServerBackups()">🔄 一覧を更新</button>
+                    <button class="btn btn-success" onclick="exportBackupToFile()">📥 今すぐバックアップ</button>
+                    <button class="btn btn-outline" onclick="importBackupFromFile()">📤 ファイルから復元</button>
                 </div>
-                <div id="serverBackupList" style="max-height:220px;overflow-y:auto;border:1px solid #eee;border-radius:6px;"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeBackupModal()">閉じる</button>
@@ -1294,6 +1285,7 @@
     <script src="js/main.js"></script>
     <script src="js/wareki.js"></script>
     <script src="js/upload_client.js"></script>
+    <script src="js/savefolder.js"></script>
     <script src="js/pdf.js"></script>
     <script src="js/backup.js"></script>
     <script src="js/sync.js"></script>

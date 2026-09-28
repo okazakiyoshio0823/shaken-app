@@ -1734,35 +1734,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// =============================================
-// 顧客データのファイル保存・読み込み機能
-// =============================================
-
-// 顧客データをJSONファイルとしてエクスポート
-function exportCustomersToFile() {
-    if (savedCustomers.length === 0) {
-        alert('保存された顧客データがありません');
-        return;
-    }
-
-    const exportData = {
-        version: '1.0',
-        exportDate: new Date().toISOString(),
-        customers: savedCustomers
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '車検見積り顧客.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    alert(`${savedCustomers.length}件の顧客データをエクスポートしました`);
-}
 // 自動レイアウト調整
 // コンテンツの高さを計測し、ページ境界（A4目安）をわずかに超えている場合に圧縮を適用する
 function autoAdjustPrintLayout() {
@@ -1900,59 +1871,6 @@ function autoAdjustPrintLayout() {
             }
         }
     }
-}
-
-// JSONファイルから顧客データをインポート
-function importCustomersFromFile() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const data = JSON.parse(event.target.result);
-
-                if (!data.customers || !Array.isArray(data.customers)) {
-                    alert('無効なファイル形式です');
-                    return;
-                }
-
-                const importCount = data.customers.length;
-                let addedCount = 0;
-                let updatedCount = 0;
-
-                data.customers.forEach(c => {
-                    const idx = savedCustomers.findIndex(x =>
-                        x.plateRegion === c.plateRegion &&
-                        x.plateClass === c.plateClass &&
-                        x.plateHiragana === c.plateHiragana &&
-                        x.plateSerial === c.plateSerial
-                    );
-                    if (idx >= 0) {
-                        savedCustomers[idx] = c;
-                        updatedCount++;
-                    } else {
-                        savedCustomers.push(c);
-                        addedCount++;
-                    }
-                });
-
-                localStorage.setItem(STORAGE_CUSTOMERS, JSON.stringify(savedCustomers));
-                alert(`インポート完了\n新規追加: ${addedCount}件\n更新: ${updatedCount}件`);
-                renderCustomerList();
-                // サーバーにつながっていれば、取り込んだお客様をサーバーへ送って一覧を取り直す
-                loadSavedData().then(() => renderCustomerList());
-            } catch (err) {
-                alert('ファイルの読み込みに失敗しました: ' + err.message);
-            }
-        };
-        reader.readAsText(file);
-    };
-    input.click();
 }
 
 // =============================================
@@ -3206,6 +3124,9 @@ async function saveEstimateToHistory() {
         return;
     }
 
+    // 控えを書く保存フォルダ。許可はボタンを押した直後でないと求められないため最初に確かめる
+    const folder = typeof getDataFolder === 'function' ? await getDataFolder(true) : null;
+
     const data = getCurrentEstimateData();
     const grand = document.getElementById('grandTotal').textContent;
 
@@ -3225,24 +3146,25 @@ async function saveEstimateToHistory() {
 
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
 
-    // 保存と同時にバックアップと同期まで済ませ、結果をまとめて知らせる。
+    // 保存と同時に同期とバックアップまで済ませ、結果をまとめて知らせる。
     // 「保存したのにバックアップされていなかった」を起こさないため、待ってから結果を出す。
     let message = '✅ 見積を保存しました';
-
-    if (typeof backupToServer === 'function') {
-        const backup = await backupToServer(true);
-        if (backup.ok) {
-            message += '\n🗄️ バックアップ完了';
-        } else if (backup.reason === 'auth') {
-            message += '\n⚠️ ログインの期限が切れているためバックアップできませんでした。ログインし直してください。';
-        } else {
-            message += '\n⚠️ サーバーに接続できずバックアップできませんでした（この端末には保存されています）。';
-        }
-    }
 
     if (typeof syncEstimates === 'function') {
         const synced = await syncEstimates(true);
         if (synced.ok) message += '\n🔄 他の端末と同期しました（' + synced.count + '件）';
+        else if (synced.reason === 'auth') message += '\n⚠️ ログインの期限が切れているため同期できませんでした。ログインし直してください。';
+        else if (synced.reason !== 'busy') message += '\n⚠️ サーバーに接続できず、他の端末とは同期できませんでした（この端末には保存されています）。';
+    }
+
+    // デスクトップの「車検データ\バックアップ」に控えを書く（フォルダを選べないスマホでは何もしない）
+    if (typeof backupToDataFolder === 'function' && hasDataFolderSupport()) {
+        const backup = await backupToDataFolder(folder);
+        if (backup.ok) {
+            message += '\n🗄️ 控えを保存しました（' + backup.path + '）';
+        } else {
+            message += '\n💡 「🗄️ バックアップ」で保存先（デスクトップ）を選ぶと、保存のたびに控えが取られます。';
+        }
     }
 
     alert(message);

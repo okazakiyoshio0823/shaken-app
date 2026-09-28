@@ -1,13 +1,16 @@
-// PDFのファイル名（拡張子なし）: [日付]_[使用者名]_車検見積書。名前が無ければナンバーを使う
+// PDFのファイル名（拡張子なし）: 2026-09-28_品川500あ1234_山田太郎様_車検見積書
+// ナンバー・名前は入っているものだけ付ける。書類名は見積書／請求書／領収書の切り替えに合わせる
 function getEstimatePdfFilename() {
-    const userName = document.getElementById('userName')?.value || '';
-    const plateSerial = document.getElementById('plateSerial')?.value || '';
+    const userName = (document.getElementById('userName')?.value || '').replace(/\s+/g, '');
+    const plate = getPlateNumber();
     const today = new Date();
-    const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-    if (userName) return `${dateStr}_${userName}_車検見積書`;
-    if (plateSerial) return `${dateStr}_${plateSerial}_車検見積書`;
-    return `${dateStr}_車検見積書`;
+    const parts = [dateStr];
+    if (plate !== '-') parts.push(plate.replace(/\s+/g, ''));
+    if (userName) parts.push(`${userName}様`);
+    parts.push(getDocumentTypeInfo().title);
+    return toSafeFileName(parts.join('_'));
 }
 
 // プレビュー（printPreview）からPDFのBlobを作る。LINEでファイルを送るときに使う
@@ -17,42 +20,39 @@ function createEstimatePdfBlob() {
     return html2pdf().set(getEstimatePdfOptions(getEstimatePdfFilename())).from(element).outputPdf('blob');
 }
 
-// PDF出力
-function generatePDF() {
+// PDF出力。保存フォルダ（車検データ\見積書PDF\年）があればそこへ、無ければダウンロードに保存する
+async function generatePDF() {
     if (typeof validateLegalFees === 'function' && !validateLegalFees()) return; // 法定費用のバリデーション
 
-    try {
-        const userName = document.getElementById('userName')?.value || '';
-        const filename = getEstimatePdfFilename();
+    // 【最重要修正】モーダル全体ではなく、余白のない純粋なA4プレビュー領域（printPreview）を直接対象にする
+    // これにより親要素のpadding分がキャプチャに巻き込まれて「左にズレて右が切れる」現象を完全に防ぎます。
+    const element = document.getElementById('printPreview');
 
-        // 【最重要修正】モーダル全体ではなく、余白のない純粋なA4プレビュー領域（printPreview）を直接対象にする
-        // これにより親要素のpadding分がキャプチャに巻き込まれて「左にズレて右が切れる」現象を完全に防ぎます。
-        const element = document.getElementById('printPreview');
+    if (!element || !element.innerHTML) {
+        alert('プレビュー内容が見つかりません。先にプレビューを表示してください。');
+        return;
+    }
 
-        if (!element || !element.innerHTML) {
-            alert('プレビュー内容が見つかりません。先にプレビューを表示してください。');
-            return;
+    // フォルダの許可はボタンを押した直後でないと求められないため、PDFを作る前に確かめる
+    let folder = await getDataFolder(true);
+    if (!folder && hasDataFolderSupport() && !(await loadDataFolderHandle())) {
+        if (confirm('PDFの保存先がまだ決まっていません。\n\n次の画面で「デスクトップ」を選ぶと、その中に「車検データ」フォルダを作って保存します。\n（キャンセルすると「ダウンロード」に保存します）')) {
+            folder = await chooseDataFolder();
         }
+    }
 
-        const opt = getEstimatePdfOptions(filename);
+    try {
+        const filename = getEstimatePdfFilename();
+        const blob = await html2pdf().set(getEstimatePdfOptions(filename)).from(element).outputPdf('blob');
+        const year = String(new Date().getFullYear());
+        const result = await saveToDataFolderOrDownload(folder, ['見積書PDF', year], filename + '.pdf', blob);
 
-        // PDFを生成してダウンロード
-        html2pdf().set(opt).from(element).save().then(() => {
-            console.log('PDF保存完了:', filename);
-
-            if (userName) {
-                alert(`PDF保存しました！\n\n📁 ファイル名: ${filename}.pdf\n\n💡 ヒント: ダウンロードフォルダから\n「車検見積りデータ」フォルダに移動すると整理しやすくなります。`);
-            }
-        }).catch(err => {
-            console.error('PDF生成エラー:', err);
-
-            alert('PDF生成に失敗しました。ブラウザの印刷機能をお試しください。');
-            window.print();
-        });
+        const where = result.where === 'folder' ? result.path : `ダウンロード\\${result.path}`;
+        alert(`PDFを保存しました。\n\n📁 ${where}`);
 
     } catch (error) {
-        console.error('PDF生成処理エラー:', error);
-        alert('PDF生成でエラーが発生しました。ブラウザの印刷機能をお試しください。');
+        console.error('PDF生成エラー:', error);
+        alert('PDF生成に失敗しました。ブラウザの印刷機能をお試しください。');
         // フォールバック: 印刷ダイアログを開く
         window.print();
     }
