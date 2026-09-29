@@ -3,7 +3,7 @@ const router = express.Router();
 const uploadController = require('../controllers/uploadController');
 const checkAuth = require('../middleware/check-auth');
 
-// POST /api/upload
-router.post('/', checkAuth, uploadController.uploadMiddleware, uploadController.uploadPhoto);
+// GET /api/photos/:id
+router.get('/:id', checkAuth, uploadController.getPhoto);
 
 module.exports = router;

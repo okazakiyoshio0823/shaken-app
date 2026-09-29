@@ -24,8 +24,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' })); // バックアップJSONが既定の100kbを超えるため引き上げ
 app.use(express.urlencoded({ extended: true }));
 
-// Serve Uploads securely
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// 写真は /api/photos からログインした人にだけ返す（以前の /uploads はだれでも見られた）
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -53,6 +52,7 @@ app.get('/api/health/db', async (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/photos', require('./routes/photoRoutes'));
 app.use('/api/customers', require('./routes/customerRoutes'));
 app.use('/api/backup', require('./routes/backupRoutes'));
 app.use('/api/estimates', require('./routes/estimateRoutes'));

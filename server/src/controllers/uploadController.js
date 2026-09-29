@@ -1,30 +1,16 @@
 const multer = require('multer');
-const path = require('path');
 const AuditLog = require('../models/AuditLog');
+const Photo = require('../models/Photo');
 
-// Storage Configuration
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        // Safe filename: timestamp-random.ext
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// ディスクには書かず、受け取った画像はそのままDBへ入れる
+const storage = multer.memoryStorage();
 
 // File Filter (Images Only)
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (extname && mimetype) {
+    if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) {
         return cb(null, true);
-    } else {
-        cb(new Error('Only images are allowed (jpeg, jpg, png, gif)'));
     }
+    cb(new Error('Only images are allowed (jpeg, png, gif, webp)'));
 };
 
 const upload = multer({
@@ -42,16 +28,36 @@ exports.uploadPhoto = async (req, res) => {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        // Log upload action
-        // Note: In real app, get user ID from req.user
-        await AuditLog.create({
-            action: 'UPLOAD_PHOTO',
-            details: { filename: req.file.filename, size: req.file.size }
+        const photo = await Photo.create({
+            mimeType: req.file.mimetype,
+            size: req.file.size,
+            data: req.file.buffer
         });
 
-        const fileUrl = `/uploads/${req.file.filename}`;
-        res.json({ message: 'File uploaded successfully', url: fileUrl });
+        await AuditLog.create({
+            action: 'UPLOAD_PHOTO',
+            user_id: req.user && req.user.id,
+            details: { photoId: photo.id, size: req.file.size }
+        });
+
+        res.json({ message: 'File uploaded successfully', url: `/api/photos/${photo.id}` });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+};
+
+// 写真を返す。お客様の車の写真なので、ログインしている人にしか見せない
+exports.getPhoto = async (req, res) => {
+    try {
+        const photo = await Photo.findByPk(req.params.id);
+        if (!photo) {
+            return res.status(404).json({ error: 'Not found' });
+        }
+        res.set('Content-Type', photo.mimeType);
+        res.set('Cache-Control', 'private, max-age=86400');
+        res.send(photo.data);
+    } catch (error) {
+        // IDの形がUUIDでないとPostgresがエラーを返すので、見つからない扱いにする
+        res.status(404).json({ error: 'Not found' });
     }
 };

@@ -41,7 +41,8 @@ if (process.env.DB_HOST) {
 } else {
     sequelize = new Sequelize({
         dialect: 'sqlite',
-        storage: path.join(__dirname, '../../database.sqlite'),
+        // SQLITE_PATH は動作確認用。本物のデータに触れずに試すときに別のファイルを指す
+        storage: process.env.SQLITE_PATH || path.join(__dirname, '../../database.sqlite'),
         logging: console.log
     });
 }
