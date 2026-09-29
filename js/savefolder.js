@@ -25,7 +25,10 @@ function openDataFolderDb() {
     });
 }
 
+let dataFolderInMemory = null;
+
 async function loadDataFolderHandle() {
+    if (dataFolderInMemory) return dataFolderInMemory;
     try {
         const db = await openDataFolderDb();
         return await new Promise((resolve) => {
@@ -49,7 +52,7 @@ async function storeDataFolderHandle(handle) {
 }
 
 // 保存フォルダを選ぶ。デスクトップそのものはEdgeが選ばせてくれないため、
-// デスクトップに作った「車検データ」を選んでもらう。別の名前のフォルダを選んだら、その中に「車検データ」を作る
+// デスクトップに作った「車検データ」を選んでもらう。選んだフォルダをそのまま使う
 async function chooseDataFolder() {
     if (!hasDataFolderSupport()) {
         alert('この端末ではフォルダを選べません。\nPDFやバックアップは「ダウンロード」に保存されます。');
@@ -60,6 +63,9 @@ async function chooseDataFolder() {
     try {
         picked = await window.showDirectoryPicker({ id: 'shaken-data', mode: 'readwrite', startIn: 'desktop' });
     } catch (e) {
+        if (e.name !== 'AbortError') {
+            alert('フォルダを開けませんでした。\n\n' + e.name + ': ' + e.message);
+        }
         return null; // キャンセル
     }
 
@@ -72,13 +78,31 @@ async function chooseDataFolder() {
         // sw.js が無い＝アプリのフォルダではない
     }
 
-    const root = picked.name === DATA_FOLDER_NAME
-        ? picked
-        : await picked.getDirectoryHandle(DATA_FOLDER_NAME, { create: true });
-
-    await storeDataFolderHandle(root);
+    // 覚えておけなくても、開いている間はこのフォルダに保存できるようにする
+    dataFolderInMemory = picked;
+    try {
+        await storeDataFolderHandle(picked);
+    } catch (e) {
+        console.error('保存フォルダを覚えておけませんでした:', e);
+        alert('保存先を覚えておけませんでした。画面を開き直したら、もう一度選んでください。\n\n' + e.name + ': ' + e.message);
+    }
     updateDataFolderStatus();
-    return root;
+    return picked;
+}
+
+// 「保存先を選ぶ」ボタン。選んだらその場でバックアップを1つ書き、保存できることを確かめる
+async function chooseDataFolderAndTest() {
+    const folder = await chooseDataFolder();
+    if (!folder) return;
+
+    try {
+        const path = await writeToDataFolder(folder, ['バックアップ'], backupFileName(), backupBlob());
+        markBackupDone();
+        alert(`✅ 保存先を「${folder.name}」にしました。\n\n試しにバックアップを保存しました。\n📁 ${path}`);
+    } catch (e) {
+        console.error('保存フォルダへの書き込みに失敗:', e);
+        alert('保存先は選べましたが、ファイルを書き込めませんでした。\n\n' + e.name + ': ' + e.message);
+    }
 }
 
 // 保存フォルダを取り出す。
@@ -129,8 +153,9 @@ function downloadBlob(blob, filename) {
 }
 
 // 保存フォルダがあればそこへ、無ければダウンロードに保存する。
-// 戻り値: { where: 'folder' | 'download', path }
+// 戻り値: { where: 'folder' | 'download', path, error }
 async function saveToDataFolderOrDownload(folder, dirs, filename, blob) {
+    let error = '';
     if (folder) {
         try {
             const path = await writeToDataFolder(folder, dirs, filename, blob);
@@ -138,10 +163,18 @@ async function saveToDataFolderOrDownload(folder, dirs, filename, blob) {
         } catch (e) {
             // フォルダが消された・移動された など。控えを失わないようダウンロードに回す
             console.error('保存フォルダへの書き込みに失敗:', e);
+            error = `（保存フォルダに書き込めませんでした: ${e.name}）`;
         }
     }
     downloadBlob(blob, filename);
-    return { where: 'download', path: toSafeFileName(filename) };
+    return { where: 'download', path: toSafeFileName(filename), error };
+}
+
+// 保存結果を知らせる文の「保存場所」部分
+function describeSavedPlace(result) {
+    return result.where === 'folder'
+        ? `📁 ${result.path}`
+        : `📁 ダウンロード\\${result.path}${result.error ? '\n' + result.error : ''}`;
 }
 
 // バックアップ画面の「保存先」表示を更新

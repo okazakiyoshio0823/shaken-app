@@ -109,8 +109,7 @@ async function exportBackupToFile() {
     const result = await saveToDataFolderOrDownload(folder, ['バックアップ'], backupFileName(), backupBlob());
     markBackupDone();
 
-    const where = result.where === 'folder' ? result.path : `ダウンロード\\${result.path}`;
-    alert(`バックアップを保存しました。\n\n見積 ${counts.estimates}件 / 顧客 ${counts.customers}件 / テンプレート ${counts.templates}件\n\n📁 ${where}`);
+    alert(`バックアップを保存しました。\n\n見積 ${counts.estimates}件 / 顧客 ${counts.customers}件 / テンプレート ${counts.templates}件\n\n${describeSavedPlace(result)}`);
 }
 
 function importBackupFromFile() {

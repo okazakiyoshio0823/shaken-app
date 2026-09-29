@@ -47,8 +47,7 @@ async function generatePDF() {
         const year = String(new Date().getFullYear());
         const result = await saveToDataFolderOrDownload(folder, ['見積書PDF', year], filename + '.pdf', blob);
 
-        const where = result.where === 'folder' ? result.path : `ダウンロード\\${result.path}`;
-        alert(`PDFを保存しました。\n\n📁 ${where}`);
+        alert(`PDFを保存しました。\n\n${describeSavedPlace(result)}`);
 
     } catch (error) {
         console.error('PDF生成エラー:', error);
