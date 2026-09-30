@@ -818,7 +818,7 @@
                 <div class="add-item-row"
                     style="display: grid; grid-template-columns: 2fr 0.6fr 1.5fr 0.8fr; gap: 8px; align-items: center;">
                     <input type="text" class="form-control" id="newItemName" placeholder="項目名を入力">
-                    <input type="number" class="form-control qty" id="newItemQty" value="1" min="1">
+                    <div class="add-qty"><span class="mobile-only">数量</span><input type="number" class="form-control qty" id="newItemQty" value="1" min="1"></div>
                     <div style="display: flex; flex-direction: column; gap: 5px;">
                         <div style="display: flex; align-items: center; justify-content: flex-end;">
                             <span style="font-size: 0.8em; color: #666; margin-right: 5px;">部品</span>
@@ -975,7 +975,7 @@
                 <!-- 写真添付 (サーバー機能) -->
                 <div class="form-group" style="margin-top:15px;border-top:1px dashed #eee;padding-top:15px;">
                     <label style="font-weight: bold; display: block; margin-bottom: 5px;">📷 車両・部品の写真添付</label>
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="photo-upload-row" style="display: flex; gap: 10px; align-items: center;">
                         <input type="file" id="vehiclePhotoUpload" accept="image/*" class="form-control"
                             style="width: auto;">
                         <button type="button" class="btn btn-secondary" onclick="uploadSelectedPhoto()">アップロード</button>
@@ -1076,8 +1076,8 @@
                 <button class="modal-close" onclick="closePreviewModal()">×</button>
             </div>
             <div class="modal-body" id="previewContent"></div>
-            <div class="modal-footer" style="justify-content: space-between; align-items: center;">
-                <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="modal-footer preview-footer" style="justify-content: space-between; align-items: center;">
+                <div class="preview-layout" style="display: flex; align-items: center; gap: 8px;">
                     <label for="printModeSelect" style="font-weight: bold; font-size: 0.9em;">レイアウト設定:</label>
                     <select id="printModeSelect" class="form-control" style="width: auto; padding: 4px 8px;"
                         onchange="setPrintMode(this.value)">
@@ -1087,7 +1087,7 @@
                         <option value="eco">かなり詰める (80%)</option>
                     </select>
                 </div>
-                <div style="display: flex; gap: 8px;">
+                <div class="preview-actions" style="display: flex; gap: 8px;">
                     <button class="btn btn-outline" onclick="closePreviewModal()">閉じる</button>
                     <button class="btn btn-primary" onclick="shareToLine()" style="background:#06C755;">📱
                         LINEで共有</button>

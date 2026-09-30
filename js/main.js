@@ -783,12 +783,12 @@ function renderMaintenanceTable() {
 
         const mainRow = `
         <tr class="main-row" data-id="${item.id}">
-            <td style="display: flex; align-items: center; gap: 8px; border-bottom: none;">
+            <td class="col-name" style="display: flex; align-items: center; gap: 8px; border-bottom: none;">
                 <span class="drag-handle" style="cursor: grab; color: #999; font-size: 1.2em; user-select: none;" title="ドラッグ＆ドロップで移動">☰</span>
                 <span style="flex: 1; word-break: break-all;">${escapeHtml(item.name)}</span>
             </td>
-            <td class="text-center"><input type="number" class="form-control qty" value="${item.qty}" min="1" onchange="updateItemQty(${item.id}, this.value)"></td>
-            <td class="text-right">
+            <td class="text-center col-qty"><input type="number" class="form-control qty" value="${item.qty}" min="1" onchange="updateItemQty(${item.id}, this.value)"></td>
+            <td class="text-right col-price">
                 <div style="display: flex; flex-direction: column; gap: 5px;">
                     <div style="display: flex; align-items: center; justify-content: flex-end;">
                         <span style="font-size: 0.8em; color: #666; margin-right: 5px;">${partsLabel}</span>
@@ -807,8 +807,8 @@ function renderMaintenanceTable() {
                     ${discountAmt.total > 0 ? `<div style="text-align: right; font-size: 0.75em; color: #d32f2f; margin-top: 2px;">値引: -¥${discountAmt.total.toLocaleString()}</div>` : ''}
                 </div>
             </td>
-            <td class="text-right">¥${item.taxIncludedPrice.toLocaleString()}</td>
-            <td>
+            <td class="text-right col-amount">¥${item.taxIncludedPrice.toLocaleString()}</td>
+            <td class="col-actions">
                 <div style="display: flex; flex-direction: column; gap: 4px;">
                     <div style="display: flex; gap: 4px;">
                         <button class="btn-add-sub" onclick="addSubItem(${item.id})" title="部品明細を追加">＋</button>
@@ -825,21 +825,21 @@ function renderMaintenanceTable() {
         // サブ項目行（ある場合）
         const subRows = (item.subItems || []).map((sub, idx) => `
         <tr class="sub-row" style="background-color: #f9f9f9;">
-            <td style="padding-left: 30px; font-size: 0.9em;">
+            <td class="col-name" style="padding-left: 30px; font-size: 0.9em;">
                 <span style="color:#999;">┗ </span>
                 <input type="text" class="form-control form-control-sm" value="${sub.name}" placeholder="部品名" onchange="updateSubItem(${item.id}, ${idx}, 'name', this.value)" style="width: 200px; display: inline-block;">
             </td>
-            <td class="text-center">
+            <td class="text-center col-qty">
                 <input type="number" class="form-control form-control-sm qty" value="${sub.qty}" min="1" onchange="updateSubItem(${item.id}, ${idx}, 'qty', this.value)" style="width: 60px;">
             </td>
-            <td class="text-right">
+            <td class="text-right col-price">
                 <div style="display: flex; align-items: center; justify-content: flex-end;">
                      <span style="font-size: 0.8em; color: #666; margin-right: 5px;">部品</span>
                     <input type="number" class="form-control form-control-sm price" value="${sub.price}" min="0" onchange="updateSubItem(${item.id}, ${idx}, 'price', this.value)" style="width: 100px;">
                 </div>
             </td>
-            <td class="text-right" style="font-size: 0.9em;">¥${sub.taxIncludedPrice.toLocaleString()}</td>
-            <td><button class="btn-remove btn-sm" onclick="removeSubItem(${item.id}, ${idx})">×</button></td>
+            <td class="text-right col-amount" style="font-size: 0.9em;">¥${sub.taxIncludedPrice.toLocaleString()}</td>
+            <td class="col-actions"><button class="btn-remove btn-sm" onclick="removeSubItem(${item.id}, ${idx})">×</button></td>
         </tr>
         `).join('');
 

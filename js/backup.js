@@ -271,6 +271,9 @@ window.addEventListener('load', () => {
 
     const daysSince = (iso) => iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : 999;
 
+    // フォルダに控えを取れない端末（スマホ）では案内しても何もできないので出さない
+    if (typeof hasDataFolderSupport === 'function' && !hasDataFolderSupport()) return;
+
     // 閉じてから1週間経っていなければ出さない
     if (daysSince(localStorage.getItem(REMINDER_DISMISSED_KEY)) < 7) return;
     if (daysSince(localStorage.getItem(BACKUP_LAST_KEY)) < 7) return;

@@ -44,6 +44,14 @@ async function generatePDF() {
     try {
         const filename = getEstimatePdfFilename();
         const blob = await html2pdf().set(getEstimatePdfOptions(filename)).from(element).outputPdf('blob');
+
+        // スマホは「共有」からコンビニ印刷アプリ・LINE・メールへそのまま渡せるようにする
+        const file = new File([blob], filename + '.pdf', { type: 'application/pdf' });
+        if (!folder && isMobileDevice() && navigator.canShare && navigator.canShare({ files: [file] })) {
+            showPdfShareChoice(file);
+            return;
+        }
+
         const year = String(new Date().getFullYear());
         const result = await saveToDataFolderOrDownload(folder, ['見積書PDF', year], filename + '.pdf', blob);
 
@@ -55,6 +63,54 @@ async function generatePDF() {
         // フォールバック: 印刷ダイアログを開く
         window.print();
     }
+}
+
+// スマホでPDFができたあとに「共有する／端末に保存する」を選んでもらう。
+// 共有画面はボタンを押した直後にしか開けないため、PDFを作り終えてからもう一度押してもらう
+function showPdfShareChoice(file) {
+    document.getElementById('pdfShareChoice')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pdfShareChoice';
+    overlay.className = 'modal-overlay active';
+    overlay.innerHTML = `
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header"><h2>📄 PDFができました</h2></div>
+            <div class="modal-body">
+                <p style="margin:0 0 6px;word-break:break-all;font-size:0.9em;color:#555;">${escapeHtml(file.name)}</p>
+                <p style="margin:0 0 14px;font-size:0.9em;color:#555;">
+                    コンビニで印刷するときは「共有する」を押し、印刷アプリ（セブン‐イレブンは「netprint」、ファミマ・ローソンは「ネットワークプリント」）を選んでください。
+                </p>
+                <div style="display:grid;gap:10px;">
+                    <button type="button" class="btn btn-success" data-act="share" style="padding:14px;">📤 共有する（印刷アプリ・LINE・メール）</button>
+                    <button type="button" class="btn btn-outline" data-act="save" style="padding:14px;">📥 端末に保存する</button>
+                    <button type="button" class="btn btn-outline" data-act="close">閉じる</button>
+                </div>
+            </div>
+        </div>`;
+
+    overlay.addEventListener('click', async (e) => {
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (act === 'share') {
+            try {
+                await navigator.share({ files: [file], title: file.name });
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('共有に失敗:', err);
+                    alert('共有できませんでした。「端末に保存する」を使ってください。');
+                }
+                return;
+            }
+            overlay.remove();
+        } else if (act === 'save') {
+            downloadBlob(file, file.name);
+            overlay.remove();
+        } else if (act === 'close') {
+            overlay.remove();
+        }
+    });
+
+    document.body.appendChild(overlay);
 }
 
 // html2pdfのオプション（ズレのない完全フィット設定）
