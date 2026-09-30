@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>使い方ガイド | Mechaniq</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- アプリの画面上部「📖 使い方ガイド」から開く。社員が最初に読む説明書。
+         お客様の情報は載せない（このページはインターネットに公開されている） -->
+    <style>
+        .guide {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .guide-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            color: #fff;
+            padding: 12px 0 18px;
+        }
+
+        .guide-top h1 {
+            font-size: 1.5rem;
+        }
+
+        .guide-toc {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .guide-toc a {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 0.9rem;
+            text-decoration: none;
+        }
+
+        .guide .card-body h3 {
+            margin: 18px 0 8px;
+            font-size: 1.05rem;
+            color: var(--primary);
+        }
+
+        .guide .card-body p {
+            margin-bottom: 10px;
+        }
+
+        .guide .card-body ol,
+        .guide .card-body ul {
+            padding-left: 1.4em;
+            margin-bottom: 10px;
+        }
+
+        .guide .card-body li {
+            margin-bottom: 6px;
+        }
+
+        .guide .card-body li ul {
+            margin-top: 6px;
+        }
+
+        .guide table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0 12px;
+            font-size: 0.95rem;
+        }
+
+        .guide th,
+        .guide td {
+            border-bottom: 1px solid var(--border);
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .guide th {
+            background: #f8f9fa;
+            color: var(--primary);
+            white-space: nowrap;
+        }
+
+        .guide .lead {
+            font-weight: 600;
+        }
+
+        .guide .note {
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 10px 0;
+        }
+
+        .guide a {
+            color: var(--primary);
+            word-break: break-all;
+        }
+
+        @media (max-width: 600px) {
+            .guide-top h1 {
+                font-size: 1.2rem;
+            }
+
+            .guide th,
+            .guide td {
+                padding: 6px 4px;
+                font-size: 0.9rem;
+            }
+
+            .guide th {
+                white-space: normal;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="guide">
+        <div class="guide-top">
+            <h1>📖 使い方ガイド</h1>
+            <a href="index.html" class="btn btn-sm btn-outline header-btn">← アプリに戻る</a>
+        </div>
+
+        <nav class="guide-toc">
+            <a href="#start">最初の準備</a>
+            <a href="#estimate">見積を作る</a>
+            <a href="#deliver">お客様に渡す</a>
+            <a href="#save">保存</a>
+            <a href="#rules">個人情報のルール</a>
+            <a href="#trouble">困ったとき</a>
+        </nav>
+
+        <div class="card">
+            <div class="card-header">はじめに</div>
+            <div class="card-body">
+                <p class="lead">Mechaniq（メカニーク）は、車検の見積書・請求書・領収書を作るアプリです。PCでもスマホでも同じデータが見られます。</p>
+                <ul>
+                    <li>見積・お客様・写真はインターネット上のサーバーに保存され、PCとスマホで共有されます。</li>
+                    <li>使う前にログインが必要です。ユーザー名と仮パスワードは管理者から受け取ってください。</li>
+                    <li>PCでは、見積書PDFとバックアップがデスクトップの「車検データ」フォルダにたまっていきます。</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card" id="start">
+            <div class="card-header">最初の準備</div>
+            <div class="card-body">
+                <p class="lead">最初に1回だけ、管理者にアカウントを作ってもらい、自分のパスワードを決めます。そのあとはPCでもスマホでも、同じユーザー名とパスワードで使えます。</p>
+
+                <h3>アカウントをもらう</h3>
+                <ol>
+                    <li>管理者が、画面上部の「👥 社員アカウント」であなたのユーザー名を入れて「作る」を押します。</li>
+                    <li>画面に出たユーザー名と仮パスワード（10文字）を受け取ります。</li>
+                    <li>仮パスワードでログインすると、自分のユーザー名とパスワード（8文字以上）を決める画面になります。</li>
+                </ol>
+
+                <h3>PCで開く</h3>
+                <ol>
+                    <li>デスクトップの見積アプリのショートカットをダブルクリックします。Edgeでアプリが開きます。</li>
+                    <li>ログイン画面が出たら、ユーザー名とパスワードを入れます。</li>
+                    <li>新しいPCで使うときは、管理者にショートカットを置いてもらってください。</li>
+                </ol>
+
+                <h3>スマホ・タブレットで開く</h3>
+                <ol>
+                    <li>次のアドレスを開きます：<a href="https://okazakiyoshio0823.github.io/shaken-app/">https://okazakiyoshio0823.github.io/shaken-app/</a></li>
+                    <li>ホーム画面に追加すると、次からアプリのように1回で開けます。
+                        <ul>
+                            <li>iPhone：Safariの共有ボタン →「ホーム画面に追加」</li>
+                            <li>Android：Chromeの右上の「⋮」→「ホーム画面に追加」</li>
+                        </ul>
+                    </li>
+                    <li>しばらく使っていないと、最初の読み込みに30秒ほどかかることがあります。サーバーが眠っているだけなので、そのまま待ってください。</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="card" id="estimate">
+            <div class="card-header">見積を作る流れ</div>
+            <div class="card-body">
+                <p class="lead">画面を上から順に埋めていき、最後に一番下の「💾 見積を保存」を押せば完成です。PCでもスマホでも手順は同じです。</p>
+                <ol>
+                    <li><b>書類を選ぶ</b>：上の「見積書」の欄で、見積書・請求書・領収書を切り替えます。</li>
+                    <li><b>お客様を呼び出す</b>：以前来たお客様なら「📂 保存済みデータから読み込み」で選びます。名前・車・前回の整備内容が入ります。</li>
+                    <li><b>車検証を読み取る</b>：初めてのお客様は「📷 車検証QRコードをスキャン」で、車検証のQRをカメラに写します。ナンバー・車台番号・車名・車両重量などが入ります。
+                        <ul>
+                            <li>読めたものから一覧に並びます。全部そろわなくても「完了」で終えられます。</li>
+                            <li>ピントが合わないときは「写真から読み取る」で、撮った写真を選びます。</li>
+                        </ul>
+                    </li>
+                    <li><b>足りないところを手で入れる</b>：電話番号、走行距離、車検区分など。</li>
+                    <li><b>整備内容を足す</b>：項目名と、部品・鉱油類・工賃の金額を入れて「➕ 追加」を押します。よく使う項目は「📋 よく使う項目から選択」が速いです。
+                        <ul>
+                            <li>値引きは項目ごとの「値引」欄か、「全体一括値引き設定」で％を入れます。</li>
+                        </ul>
+                    </li>
+                    <li><b>法定費用を確かめる</b>：重量税・自賠責・印紙代は、車両重量と車検区分から自動で入ります。車検以外の仕事は「🚫 明細に載せない」を押します。</li>
+                    <li><b>合計を確かめる</b>：「合計金額」の欄に税込みの合計が出ます。必要なら「備考・メモ」に書きます。</li>
+                    <li><b>保存する</b>：一番下の「💾 見積を保存」を押します。ナンバーが空だと保存できません。</li>
+                    <li><b>次回のためにお客様を残す</b>：「💾 このお客様を保存」を押すと、次回は手順2で呼び出せます。</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="card" id="deliver">
+            <div class="card-header">お客様に渡す</div>
+            <div class="card-body">
+                <p class="lead">一番下の「🖨️ 印刷・プレビュー」を押すと、渡し方を4つから選べます。</p>
+                <table>
+                    <thead>
+                        <tr><th>渡し方</th><th>ボタン</th><th>こんなとき</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>紙で渡す</td><td>A4印刷</td><td>事務所のプリンターがある</td></tr>
+                        <tr><td>PDFで渡す</td><td>PDF出力</td><td>メールで送る、控えを残す</td></tr>
+                        <tr><td>LINEで送る</td><td>LINEで共有</td><td>お客様とLINEでやり取りしている</td></tr>
+                        <tr><td>コンビニで印刷</td><td>PDF出力 → 共有する</td><td>外出先でスマホしかない</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>スマホからコンビニで印刷する</h3>
+                <p>このアプリのPDFはA4・1ページ約1MBなので、そのままコンビニで印刷できます。先に、使うコンビニの印刷アプリをスマホに入れておきます。</p>
+                <ul>
+                    <li>セブン‐イレブン：「かんたんnetprint」。PDFは10MB・99ページまで、登録の翌日23:59まで印刷できます。</li>
+                    <li>ファミリーマート・ローソン・ミニストップ：「ネットワークプリント」。登録から8日間印刷できます。</li>
+                </ul>
+                <ol>
+                    <li>「🖨️ 印刷・プレビュー」→「📄 PDF出力」を押します。</li>
+                    <li>「PDFができました」と出たら「📤 共有する」を押し、印刷アプリを選びます。</li>
+                    <li>印刷アプリに出た番号（予約番号・ユーザー番号）を控えます。</li>
+                    <li>コンビニのコピー機で「ネットプリント」を選び、その番号を入れて印刷します。</li>
+                </ol>
+                <p>共有の一覧に印刷アプリが出ないときは、「📥 端末に保存する」で保存してから、印刷アプリの中でそのファイルを選びます。</p>
+            </div>
+        </div>
+
+        <div class="card" id="save">
+            <div class="card-header">保存とバックアップ</div>
+            <div class="card-body">
+                <p class="lead">「💾 見積を保存」を押せば、サーバーに保存され、ほかのPCやスマホからも見られます。普段、それ以外の操作はいりません。</p>
+                <table>
+                    <thead>
+                        <tr><th>保存するもの</th><th>やり方</th><th>あとで見るには</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>見積・請求書・領収書</td><td>一番下の「💾 見積を保存」</td><td>上の「📊 履歴」で名前・ナンバーで検索</td></tr>
+                        <tr><td>お客様と車の情報</td><td>「💾 このお客様を保存」</td><td>「📂 保存済みデータから読み込み」</td></tr>
+                        <tr><td>車・部品の写真</td><td>「アップロード」のあと「💾 このお客様を保存」</td><td>お客様を読み込むと出る</td></tr>
+                        <tr><td>よく使う整備の組み合わせ</td><td>「📋 テンプレート」→「現在の整備項目を保存」</td><td>「📋 テンプレート」</td></tr>
+                    </tbody>
+                </table>
+                <div class="note">写真は「アップロード」を押しただけでは、お客様に結びつきません。必ず「💾 このお客様を保存」も押してください。</div>
+
+                <h3>PCの「車検データ」フォルダ</h3>
+                <p>PCでは、デスクトップの「車検データ」フォルダに控えがたまります。</p>
+                <ul>
+                    <li>見積書PDF：「PDF出力」で「見積書PDF\年」に入ります。ファイル名は「日付_ナンバー_お名前様_書類名」です。</li>
+                    <li>バックアップ：「見積を保存」のたびに「バックアップ」へ自動で入ります（1日1ファイル）。</li>
+                    <li>新しいPCでは最初に1回、「🗄️ バックアップ」→「📁 保存先を選ぶ」で、デスクトップの「車検データ」フォルダを選びます。デスクトップそのものはEdgeが選ばせてくれません。</li>
+                    <li>スマホではこのフォルダは使いません。</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card" id="rules">
+            <div class="card-header">個人情報の取り扱いルール</div>
+            <div class="card-body">
+                <p class="lead">このアプリには、お客様の名前・住所・電話番号・車の写真が入っています。次の7つを守ってください。</p>
+                <ul>
+                    <li>パスワードは人に教えない。アカウントは1人1つで、使い回ししない。</li>
+                    <li>共用のPCや人のスマホで使ったあとは、右上の「🚪 ログアウト」を押す。</li>
+                    <li>「車検データ」フォルダの中身を、USBメモリや個人のメールで持ち出さない。</li>
+                    <li>バックアップのファイル（.json）はお客様全員分の個人情報が入っているので、人に渡さない。</li>
+                    <li>アプリのフォルダ（shaken_app）には、お客様のファイルを置かない。このフォルダはインターネットに公開されています。</li>
+                    <li>LINEやコンビニ印刷で送る前に、送り先とお客様の名前を確かめる。</li>
+                    <li>コンビニで印刷したら、コピー機に紙を忘れない。</li>
+                </ul>
+                <div class="note">間違えて送った、スマホをなくしたときは、すぐに管理者に知らせてください。管理者がそのアカウントのパスワードを変えます。</div>
+            </div>
+        </div>
+
+        <div class="card" id="trouble">
+            <div class="card-header">困ったとき</div>
+            <div class="card-body">
+                <table>
+                    <thead>
+                        <tr><th>こんなとき</th><th>やること</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>パスワードを忘れた</td><td>管理者に頼む。「👥 社員アカウント」から仮パスワードを再発行してもらえる</td></tr>
+                        <tr><td>「セッションが切れました」と出る</td><td>ログインし直す。ログインは8時間で切れる</td></tr>
+                        <tr><td>開くのに30秒ほどかかる</td><td>サーバーが眠っているだけ。待つ</td></tr>
+                        <tr><td>「同期できませんでした」と出る</td><td>電波の良い場所で、上の同期の表示を押す。見積はその端末には残っている</td></tr>
+                        <tr><td>車検証のQRが読めない</td><td>QRを枠いっぱいに大きく写す。だめなら「写真から読み取る」</td></tr>
+                        <tr><td>写真が「写真が見つかりません」になる</td><td>2026年9月より前に上げた写真は消えている。撮り直してアップロードする</td></tr>
+                        <tr><td>PCでPDFが「車検データ」に入らずダウンロードに入る</td><td>「🗄️ バックアップ」→「📁 保存先を選ぶ」で「車検データ」を選び直す</td></tr>
+                        <tr><td>スマホで番号が入れにくい・画面が崩れる</td><td>画面の写真（スクリーンショット）を管理者に送る</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="text-align:center;padding:8px 0 24px;">
+            <a href="index.html" class="btn btn-sm btn-outline header-btn">← アプリに戻る</a>
+        </div>
+    </div>
+</body>
+
+</html>

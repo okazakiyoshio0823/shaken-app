@@ -1014,6 +1014,12 @@ body {
     background: transparent;
 }
 
+/* リンク（<a>）で作ったボタンも、ほかのボタンと同じ見た目にする */
+a.btn {
+    display: inline-block;
+    text-decoration: none;
+}
+
 .header-btn:hover {
     background: rgba(255, 255, 255, 0.12);
 }
