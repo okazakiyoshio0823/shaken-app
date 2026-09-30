@@ -894,7 +894,7 @@
             <div class="card-body">
                 <table class="legal-table">
                     <tr>
-                        <td>自動車重量税（1年）</td>
+                        <td>自動車重量税（2年）</td>
                         <td class="text-right">
                             <input type="number" class="form-control fee-input" id="weightTaxInput" value="0"
                                 onchange="onManualLegalFeeChange()">
@@ -917,7 +917,7 @@
                     <tr>
                         <td>検査予約手数料</td>
                         <td class="text-right">
-                            <input type="number" class="form-control fee-input" id="reservationFee" value="2200"
+                            <input type="number" class="form-control fee-input" id="reservationFee" value="500"
                                 onchange="calculateTotals()">
                         </td>
                     </tr>
@@ -929,6 +929,8 @@
                         </td>
                     </tr>
                 </table>
+                <!-- 何を基準に計算したか（main.js の showLegalFeeBasis） -->
+                <div id="legalFeeBasis" style="font-size:0.8em;color:#666;margin-top:10px;line-height:1.6;"></div>
             </div>
         </div>
 

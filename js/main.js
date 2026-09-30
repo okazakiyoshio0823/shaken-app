@@ -41,6 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
     calculateTotals();
     initializeEnterKeyNavigation();
 
+    // 法定費用は車検の日付・初度登録・ナンバー（小型かどうか）で変わるので、変えたら計算し直す
+    ['shakenExpiryDate', 'firstRegistration', 'plateClass'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', updateLegalFees);
+    });
+
     // SortableJSの初期化
     const tbody = document.getElementById('maintenanceItems');
     if (tbody && typeof Sortable !== 'undefined') {
@@ -548,9 +553,7 @@ function validateLegalFees() {
     const totalLegal = weightTax + jibaiseki + stamp;
 
     // 24ヶ月点検が含まれるかチェック
-    const has24MonthInspection = maintenanceItems.some(item =>
-        item.name && item.name.includes('24') && item.name.includes('点検')
-    );
+    const has24MonthInspection = maintenanceItems.some(item => isShakenInspectionItem(item.name));
 
     if (has24MonthInspection && totalLegal === 0) {
         if (!confirm("⚠️【確認】\n\n整備内容に「24ヶ月点検」等が含まれていますが、法定費用（重量税・自賠責・印紙代）が0円です。\nこのまま続行しますか？")) {
@@ -621,13 +624,38 @@ function onModelChange() {
     }
 }
 
+// 法定費用を計算する基準日（YYYY-MM-DD）。
+// 車検満了日が入っていればその日（車検を受けるのも自賠責が始まるのもその頃なので）、無ければ今日
+function getLegalFeeReferenceDate() {
+    const expiry = document.getElementById('shakenExpiryDate')?.value;
+    if (expiry) return { date: expiry, label: '車検満了日' };
+    const t = new Date();
+    const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    return { date: today, label: '今日' };
+}
+
+// 5・4・7ナンバーは小型自動車（持込検査の手数料だけ普通車より安い）
+function isSmallCarByPlate() {
+    const cls = (document.getElementById('plateClass')?.value || '').trim();
+    return /^[457]/.test(cls);
+}
+
 // 法定費用
 function updateLegalFees() {
     const weight = document.getElementById('vehicleWeight').value;
-    const age = document.getElementById('vehicleAge').value;
+    const ageSelect = document.getElementById('vehicleAge');
     const factory = document.getElementById('factoryType').value;
     const oss = document.getElementById('useOSS').checked;
     const shakenType = document.getElementById('shakenType').value;
+    const ref = getLegalFeeReferenceDate();
+
+    // 経過年数は初度登録から自動で決める（エコカーを選んだときはそのまま）
+    const firstReg = document.getElementById('firstRegistration')?.value;
+    if (firstReg && ageSelect.value !== 'ecocar') {
+        const ageClass = calculateVehicleAgeClass(firstReg, ref.date);
+        if (ageClass) ageSelect.value = ageClass;
+    }
+    const age = ageSelect.value;
 
     if (shakenType === 'none' || !weight) {
         currentLegalFees = { weightTax: 0, jibaiseki: 0, stamp: 0 };
@@ -635,9 +663,10 @@ function updateLegalFees() {
         const isKei = weight === 'kei';
         const weightNum = isKei ? 0 : parseInt(weight);
         currentLegalFees.weightTax = calculateWeightTax(weightNum, age, isKei);
-        currentLegalFees.jibaiseki = isKei ? LEGAL_FEES.jibaiseki.kei : LEGAL_FEES.jibaiseki.normal;
-        currentLegalFees.stamp = calculateStampFee(isKei, factory, oss);
+        currentLegalFees.jibaiseki = calculateJibaiseki(isKei, ref.date);
+        currentLegalFees.stamp = calculateInspectionFee(isKei, isSmallCarByPlate(), factory, oss, ref.date);
     }
+    showLegalFeeBasis(ref, weight, shakenType);
 
     const wtInput = document.getElementById('weightTaxInput');
     const jbInput = document.getElementById('jibaisekiInput');
@@ -660,6 +689,73 @@ function onManualLegalFeeChange() {
     currentLegalFees.stamp = parseInt(stInput ? stInput.value : 0) || 0;
 
     calculateTotals();
+}
+
+// 法定費用の下に「何を基準に計算したか」を出す。お客様に聞かれたときに答えられるように
+function showLegalFeeBasis(ref, weight, shakenType) {
+    const el = document.getElementById('legalFeeBasis');
+    if (!el) return;
+
+    if (shakenType === 'none') {
+        el.innerHTML = '';
+        return;
+    }
+    if (!weight) {
+        el.innerHTML = '<span style="color:#c62828;">⚠️ 車両情報の「車両重量」を選ぶと、重量税・自賠責・印紙代が自動で入ります。</span>';
+        return;
+    }
+
+    const d = ref.date.split('-');
+    const ageText = { normal: '13年未満', over13: '13年経過', over18: '18年経過', ecocar: 'エコカー（本則税率）' }[document.getElementById('vehicleAge').value] || '';
+    const factory = document.getElementById('factoryType').value === 'certified'
+        ? '持込検査'
+        : (document.getElementById('useOSS').checked ? '指定工場・OSS' : '指定工場・窓口');
+    const [cy, cm, cd] = LEGAL_FEES.checkedOn.split('-');
+
+    el.innerHTML = `
+        計算の基準日：${Number(d[0])}年${Number(d[1])}月${Number(d[2])}日（${ref.label}）／ 重量税：${ageText} ／ 印紙代：${factory}<br>
+        料金表は${cy}年${Number(cm)}月${Number(cd)}日時点の国の料金です。エコカー減税で免税になる車などは、
+        <a href="${weight === 'kei' ? 'https://www.kei-nextmvtt.jp/' : 'https://www.nextmvtt.mlit.go.jp/'}" target="_blank" rel="noopener">国の重量税照会サービス</a>
+        で車台番号から確かめてください。`;
+}
+
+// 整備内容の名前が「24ヶ月点検」「車検」などか
+function isShakenInspectionItem(name) {
+    return !!name && /24/.test(name) && /点検|車検/.test(name);
+}
+
+// 24ヶ月点検が入ったら、車検の法定費用・諸費用をまとめて入れる
+function applyShakenLegalFees() {
+    if (window.hideLegalFees) setLegalFeesHidden(false);
+
+    const shakenType = document.getElementById('shakenType');
+    if (shakenType.value === 'none') shakenType.value = 'continue';
+
+    document.getElementById('reservationFee').value = LEGAL_FEES.reservationFee;
+    document.getElementById('agencyFee').value = Math.round(LEGAL_FEES.agencyFeeExTax * (1 + TAX_RATE));
+    updateLegalFees();
+
+    const weight = document.getElementById('vehicleWeight').value;
+    flashLegalFeesCard(weight
+        ? '✅ 24ヶ月点検が入ったので、法定費用・諸費用を自動で入れました'
+        : '⚠️ 24ヶ月点検が入りました。車両重量を選ぶと、重量税・自賠責・印紙代も入ります');
+}
+
+// 法定費用の欄に、自動で入れたことを数秒だけ知らせる
+function flashLegalFeesCard(message) {
+    const card = document.getElementById('legalFeesCard');
+    if (!card) return;
+    let note = document.getElementById('legalFeesFlash');
+    if (!note) {
+        note = document.createElement('div');
+        note.id = 'legalFeesFlash';
+        note.style.cssText = 'padding:8px 20px;background:#e8f5e9;color:#1b5e20;font-weight:600;font-size:0.9em;';
+        card.insertBefore(note, card.querySelector('.card-body'));
+    }
+    note.textContent = message;
+    note.style.display = 'block';
+    clearTimeout(flashLegalFeesCard.timer);
+    flashLegalFeesCard.timer = setTimeout(() => { note.style.display = 'none'; }, 6000);
 }
 
 function updateShakenType() {
@@ -770,6 +866,8 @@ function addItemToTable(name, qty, parts, wage, isFluid = false) {
     });
     renderMaintenanceTable();
     calculateTotals();
+
+    if (isShakenInspectionItem(name)) applyShakenLegalFees();
 }
 
 
@@ -1705,7 +1803,7 @@ function generatePreviewHtml() {
             <div class="preview-section">📋 法定費用・諸費用</div>
             <table class="preview-table">
                 <tbody>
-                    <tr><td>自動車重量税（1年）</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
+                    <tr><td>自動車重量税（2年）</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
                     <tr><td>自賠責保険料（24ヶ月）</td><td class="text-right">¥${currentLegalFees.jibaiseki.toLocaleString()}</td></tr>
                     <tr><td>印紙代</td><td class="text-right">¥${currentLegalFees.stamp.toLocaleString()}</td></tr>
                     <tr><td>検査予約手数料</td><td class="text-right">¥${reserve.toLocaleString()}</td></tr>
@@ -3301,7 +3399,7 @@ function loadEstimateFromHistory(id) {
     }
 
     // 法定費用
-    document.getElementById('reservationFee').value = d.reservationFee || '2200';
+    document.getElementById('reservationFee').value = d.reservationFee || LEGAL_FEES.reservationFee;
     document.getElementById('agencyFee').value = d.agencyFee || '11000';
     setLegalFeesHidden(d.hideLegalFees);
 
@@ -3419,7 +3517,7 @@ function applyTemplate(id) {
     }));
     renderMaintenanceTable();
 
-    document.getElementById('reservationFee').value = t.reservationFee || '2200';
+    document.getElementById('reservationFee').value = t.reservationFee || LEGAL_FEES.reservationFee;
     document.getElementById('agencyFee').value = t.agencyFee || '11000';
     if (t.notes) document.getElementById('notes').value = t.notes;
 

@@ -179,6 +179,8 @@ function onWarekiChange(fieldId) {
     // 年が変更されたら月・日のselectを更新（うるう年対応）
     populateDateSelects(fieldId);
     syncWarekiToSeireki(fieldId);
+    // 初度登録は重量税の経過年数に使う
+    if (fieldId === 'firstRegistration' && typeof updateLegalFees === 'function') updateLegalFees();
 }
 
 /**

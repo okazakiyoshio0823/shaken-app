@@ -1,5 +1,14 @@
-// 法定費用データ（2025年最新版）
+// ============================================
+// 法定費用の料金表（継続車検・2年）
+// 国の料金は年に1回ほど変わるので、「いつから有効か」を持たせ、車検の日付で自動で切り替える。
+// 新しい改定が発表されたら、各表の末尾に { from: '改定日', ... } を足すだけでよい。
+// 最終確認: 2026-09-30
+// ============================================
 const LEGAL_FEES = {
+    checkedOn: '2026-09-30',
+
+    // 自動車重量税（2年分・自家用）。税率は2026年9月時点で変更なし。
+    // ecocar = エコカー減税の本則税率。免税の車は照会サービスで確かめて手で0にする
     weightTax: {
         kei: { ecocar: 5000, normal: 6600, over13: 8200, over18: 8800 },
         under500kg: { ecocar: 5000, normal: 8200, over13: 11400, over18: 12600 },
@@ -9,12 +18,64 @@ const LEGAL_FEES = {
         under2500kg: { ecocar: 25000, normal: 41000, over13: 57000, over18: 63000 },
         under3000kg: { ecocar: 30000, normal: 49200, over13: 68400, over18: 75600 }
     },
-    jibaiseki: { normal: 17650, kei: 17540 },
-    stamp: {
-        normal: { certified: 2300, designated: 1800, designatedOSS: 1600 },
-        kei: { window: 2200, oss: 1100 }
-    }
+
+    // 自賠責保険料（24か月・離島と沖縄県以外）。保険期間の始まる日で決まる
+    // 出典: 損害保険料率算出機構「基準料率届出のご案内」2026年4月30日
+    //       https://www.giroj.or.jp/ratemaking/cali/pdf/202604_announcement.pdf
+    jibaiseki24: [
+        { from: '2023-04-01', passenger: 17650, kei: 17540 },
+        { from: '2026-11-01', passenger: 18560, kei: 18660 }
+    ],
+
+    // 継続検査の手数料（印紙・証紙代の合計）
+    //   designatedOSS    指定工場（保安基準適合証）でOSS申請
+    //   designatedWindow 指定工場（保安基準適合証）で窓口申請
+    //   carryIn          持込検査（認証工場）。普通・小型・軽で違う
+    // 出典: 国土交通省「自動車の登録・検査の法定手数料変更について（令和8年4月1日）」
+    //       https://www.mlit.go.jp/jidosha/content/001986066.pdf
+    inspectionFee: [
+        { from: '2023-01-01', designatedOSS: 1600, designatedWindow: 1800, carryIn: { normal: 2300, small: 2200, kei: 2200 } },
+        { from: '2026-04-01', designatedOSS: 1850, designatedWindow: 2100, carryIn: { normal: 2600, small: 2500, kei: 2500 } }
+    ],
+
+    // 店で決めている手数料
+    reservationFee: 500,       // 検査予約手数料
+    agencyFeeExTax: 10000      // 代行手数料（税抜。消費税を足して入れる）
 };
+
+// 料金表から、date（YYYY-MM-DD）の時点で有効なものを選ぶ
+function pickFeeByDate(list, date) {
+    let picked = list[0];
+    list.forEach(row => { if (row.from <= date) picked = row; });
+    return picked;
+}
+
+function calculateJibaiseki(isKei, date) {
+    const row = pickFeeByDate(LEGAL_FEES.jibaiseki24, date);
+    return isKei ? row.kei : row.passenger;
+}
+
+// isSmall: 小型自動車（5・4・7ナンバー）。持込検査のときだけ金額が変わる
+function calculateInspectionFee(isKei, isSmall, factoryType, useOSS, date) {
+    const row = pickFeeByDate(LEGAL_FEES.inspectionFee, date);
+    if (factoryType === 'certified') {
+        if (isKei) return row.carryIn.kei;
+        return isSmall ? row.carryIn.small : row.carryIn.normal;
+    }
+    return useOSS ? row.designatedOSS : row.designatedWindow;
+}
+
+// 重量税の経過年数。初度登録（初度検査）年月から13年・18年を過ぎた月からの車検で上がる
+// firstRegistration, date は YYYY-MM-DD
+function calculateVehicleAgeClass(firstRegistration, date) {
+    const [fy, fm] = firstRegistration.split('-').map(Number);
+    const [ry, rm] = date.split('-').map(Number);
+    if (!fy || !fm || !ry || !rm) return '';
+    const months = (ry - fy) * 12 + (rm - fm);
+    if (months >= 18 * 12) return 'over18';
+    if (months >= 13 * 12) return 'over13';
+    return 'normal';
+}
 
 function calculateWeightTax(weight, vehicleAge, isKei) {
     let category;
@@ -26,12 +87,6 @@ function calculateWeightTax(weight, vehicleAge, isKei) {
     else if (weight <= 2500) category = LEGAL_FEES.weightTax.under2500kg;
     else category = LEGAL_FEES.weightTax.under3000kg;
     return category[vehicleAge] || category.normal;
-}
-
-function calculateStampFee(isKei, factoryType, useOSS) {
-    if (isKei) return useOSS ? LEGAL_FEES.stamp.kei.oss : LEGAL_FEES.stamp.kei.window;
-    if (factoryType === 'certified') return LEGAL_FEES.stamp.normal.certified;
-    return useOSS ? LEGAL_FEES.stamp.normal.designatedOSS : LEGAL_FEES.stamp.normal.designated;
 }
 
 // 整備項目カテゴリ
