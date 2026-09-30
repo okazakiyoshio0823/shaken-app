@@ -304,6 +304,26 @@ body {
     line-height: 1.6;
 }
 
+.eco-check .eco-amounts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.eco-check .eco-amounts span {
+    padding: 4px 10px;
+    border: 1px solid #e0c060;
+    border-radius: 999px;
+    background: #fff;
+}
+
+/* いま計算に使っている目安 */
+.eco-check .eco-amounts span.eco-guess {
+    border: 2px solid #f57c00;
+    font-weight: 700;
+}
+
 .eco-check .eco-buttons {
     display: flex;
     flex-wrap: wrap;

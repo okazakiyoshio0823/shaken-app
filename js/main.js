@@ -46,6 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ['shakenExpiryDate', 'firstRegistration', 'plateClass'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateLegalFees);
     });
+    // ナンバー・車両重量が決まったら、車両の区分（乗用・貨物・事業用など）を選び直す
+    ['plateClass', 'plateHiragana', 'vehicleWeight'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', suggestCategoryFromPlate);
+    });
 
     // SortableJSの初期化
     const tbody = document.getElementById('maintenanceItems');
@@ -576,7 +580,7 @@ function validateLegalFees() {
     // エコカー減税を確かめないまま出すと、重量税が違っていることがある
     const ecoSelect = document.getElementById('weightTaxEco');
     if (totalLegal > 0 && ecoSelect && !ecoSelect.disabled && ecoSelect.value === '') {
-        if (!confirm('⚠️ エコカー減税の確認がまだです。\n重量税は「対象外」の金額で計算しています。\n\n法定費用の欄の「照会サービス」で確かめてから出すのがおすすめです。\nこのまま続行しますか？')) {
+        if (!confirm('⚠️ エコカー減税の確認がまだです。\n重量税は燃料・型式からの「目安」で計算しています。\n\n法定費用の欄の「照会」ボタンで確かめてから出すのがおすすめです。\nこのまま続行しますか？')) {
             return false;
         }
     }
@@ -658,6 +662,34 @@ function syncCategoryWithWeight() {
 // 貨物は2回目以降の車検が1年
 const ONE_YEAR_CATEGORIES = ['smallCargo', 'smallCargoBusiness', 'cargo', 'cargoBusiness'];
 
+// ナンバープレートから車両の区分を選ぶ。
+//   分類番号の先頭 1=普通貨物 4=小型貨物 8=特種用途 3・5・7=乗用
+//   ひらがな あいうえかきくけこを=事業用（緑・黒ナンバー）
+// 軽自動車は分類番号だけでは小型車と見分けられないので、車両重量が「軽自動車」のときだけ軽にする。
+// 車両重量が未入力のうちは決めない（軽トラを小型貨物にしてしまわないように）
+const BUSINESS_HIRAGANA = 'あいうえかきくけこを';
+
+function suggestCategoryFromPlate() {
+    const cls = (document.getElementById('plateClass').value || '').trim();
+    const kana = (document.getElementById('plateHiragana').value || '').trim();
+    const weight = document.getElementById('vehicleWeight').value;
+    if (!cls || !weight) return;
+
+    const business = kana !== '' && BUSINESS_HIRAGANA.includes(kana);
+    let category = null;
+    if (weight === 'kei') category = business ? 'keiBusiness' : 'kei';
+    else if (cls[0] === '1') category = business ? 'cargoBusiness' : 'cargo';
+    else if (cls[0] === '4') category = business ? 'smallCargoBusiness' : 'smallCargo';
+    else if (cls[0] === '8') category = 'special';
+    else if ('357'.includes(cls[0])) category = 'passenger';
+
+    const select = document.getElementById('vehicleCategory');
+    if (category && select.value !== category) {
+        select.value = category;
+        onVehicleCategoryChange();
+    }
+}
+
 function onVehicleCategoryChange(recalculate = true) {
     const key = document.getElementById('vehicleCategory').value;
     const cat = getVehicleCategory(key);
@@ -678,10 +710,16 @@ function onVehicleCategoryChange(recalculate = true) {
 
     if (!recalculate) return;
 
-    // 貨物を選んだら1年車検に（2年の継続車検のままだったとき）
+    // 貨物を選んだら1年車検に（2年の継続車検のままだったとき）。
+    // 自動で1年にしたあと貨物以外に戻したら、2年に戻す（自分で1年を選んだときはそのまま）
     const shakenType = document.getElementById('shakenType');
     if (ONE_YEAR_CATEGORIES.includes(key) && shakenType.value === 'continue') {
         shakenType.value = 'continue1';
+        shakenType.dataset.autoOneYear = '1';
+        setDefaultJibaisekiMonths();
+    } else if (!ONE_YEAR_CATEGORIES.includes(key) && shakenType.value === 'continue1' && shakenType.dataset.autoOneYear) {
+        shakenType.value = 'continue';
+        delete shakenType.dataset.autoOneYear;
         setDefaultJibaisekiMonths();
     }
     updateLegalFees();
@@ -695,6 +733,7 @@ function getLegalFeeInputs() {
         grossWeight: $('grossWeight').value,
         maxLoad: $('maxLoad').value,
         weightTaxEco: $('weightTaxEco').value,
+        fuelType: $('fuelType').value,
         jibaisekiMonths: $('jibaisekiMonths').value
     };
 }
@@ -705,6 +744,7 @@ function applyLegalFeeInputs(d) {
     $('vehicleCategory').value = d.vehicleCategory || (d.vehicleWeight === 'kei' ? 'kei' : 'passenger');
     $('grossWeight').value = d.grossWeight || '';
     $('maxLoad').value = d.maxLoad || '';
+    $('fuelType').value = d.fuelType || '';
     $('weightTaxEco').value = d.weightTaxEco !== undefined ? d.weightTaxEco : (d.vehicleAge === 'ecocar' ? 'eco' : '');
     if (d.vehicleAge === 'ecocar') $('vehicleAge').value = 'normal';
     onVehicleCategoryChange(false);
@@ -761,7 +801,9 @@ function updateLegalFees() {
     const vehicleWeightKg = weightBin && weightBin !== 'kei' ? parseInt(weightBin, 10) : 0;
     const grossWeightKg = parseInt($('grossWeight').value, 10) || 0;
     const maxLoadKg = parseInt($('maxLoad').value, 10) || 0;
-    const eco = $('weightTaxEco').value;
+    // エコカー減税は、確かめるまでは燃料・型式からの目安で計算する
+    const ecoGuess = guessWeightTaxEco(cat);
+    const eco = $('weightTaxEco').value || ecoGuess.value;
 
     // 足りない入力（あれば法定費用の下に出す）
     const missing = [];
@@ -783,8 +825,11 @@ function updateLegalFees() {
     currentLegalFees = { weightTax, jibaiseki, stamp };
 
     $('weightTaxYearsLabel').textContent = term ? term.years : 2;
-    showLegalFeeBasis({ ref, cat, term, months, missing, notFound });
-    showEcoCheck(cat, shakenType, eco);
+    showLegalFeeBasis({ ref, cat, term, months, missing, notFound, ecoGuess });
+
+    // エコカーかどうかで重量税がいくらになるか（確認の枠に幅として出す）
+    const taxFor = e => term ? calculateWeightTax({ categoryKey, years: term.years, vehicleWeightKg, grossWeightKg, ageClass: $('vehicleAge').value, eco: e }) : null;
+    showEcoCheck(cat, shakenType, $('weightTaxEco').value, ecoGuess, { none: taxFor('none'), eco: taxFor('eco'), exempt: 0 });
 
     const wtInput = document.getElementById('weightTaxInput');
     const jbInput = document.getElementById('jibaisekiInput');
@@ -810,7 +855,7 @@ function onManualLegalFeeChange() {
 }
 
 // 法定費用の下に「何を基準に計算したか」を出す。お客様に聞かれたときに答えられるように
-function showLegalFeeBasis({ ref, cat, term, months, missing, notFound }) {
+function showLegalFeeBasis({ ref, cat, term, months, missing, notFound, ecoGuess }) {
     const el = document.getElementById('legalFeeBasis');
     if (!el) return;
 
@@ -825,7 +870,9 @@ function showLegalFeeBasis({ ref, cat, term, months, missing, notFound }) {
 
     const d = ref.date.split('-');
     const ageText = { normal: '13年未満', over13: '13年経過', over18: '18年経過' }[document.getElementById('vehicleAge').value] || '';
-    const ecoText = { '': 'エコカー減税は未確認', none: 'エコカー減税の対象外', eco: 'エコカー（本則税率）', exempt: '免税' }[document.getElementById('weightTaxEco').value];
+    const ecoLabels = { none: 'エコカー減税の対象外', eco: 'エコカー（本則税率）', exempt: '免税' };
+    const ecoSelected = document.getElementById('weightTaxEco').value;
+    const ecoText = ecoSelected ? ecoLabels[ecoSelected] : `エコカー減税は未確認（目安：${ecoLabels[ecoGuess.value]}）`;
     const factory = document.getElementById('factoryType').value === 'certified'
         ? '持込検査'
         : (document.getElementById('useOSS').checked ? '指定工場・OSS' : '指定工場・窓口');
@@ -844,25 +891,63 @@ function showLegalFeeBasis({ ref, cat, term, months, missing, notFound }) {
         計算の基準日：${Number(d[0])}年${Number(d[1])}月${Number(d[2])}日（${ref.label}）。料金表は${cy}年${Number(cm)}月${Number(cd)}日に国の資料で確認した金額です。${warn}`;
 }
 
+// エコカー減税の目安。確かめるまでは、燃料の種類と型式の先頭の記号（排出ガス識別記号）から推定する。
+//   電気・水素（型式が ZA〜）……… エコカー。2026年5月以降の新車の初回車検は免税
+//   ハイブリッド（燃料に「電気」、型式の記号に AA / LA）… エコカー（本則税率）のことが多い
+//   それ以外 …………………………… ふつうの税率（高いほうで見積もっておく）
+// あくまで目安。確実なのは国の照会サービス
+function guessWeightTaxEco(cat) {
+    if (!cat.eco) return { value: 'none', reason: 'エコカー減税の対象外の車種' };
+
+    const fuel = document.getElementById('fuelType')?.value || '';
+    const model = (document.getElementById('carModel')?.value || '').toUpperCase();
+    const prefix = model.includes('-') ? model.slice(0, model.indexOf('-')) : '';
+    const name = document.getElementById('carName')?.value || '';
+
+    const isEV = /^(電気|圧縮水素)$/.test(fuel.trim()) || /^ZA/.test(prefix);
+    if (isEV) {
+        const firstReg = document.getElementById('firstRegistration')?.value || '';
+        const newAfter = firstReg >= '2026-05-01';
+        return newAfter
+            ? { value: 'exempt', reason: '電気自動車・燃料電池車で、2026年5月以降の新車（初回の車検は免税）' }
+            : { value: 'eco', reason: '電気自動車・燃料電池車' };
+    }
+    const isHybrid = /電気/.test(fuel) || /^\d?(AA|LA)$/.test(prefix) || /ハイブリッド|HYBRID|e-POWER/i.test(name);
+    if (isHybrid) return { value: 'eco', reason: 'ハイブリッド車（燃料・型式から判断）' };
+
+    return { value: 'none', reason: fuel || prefix ? '燃料・型式からはエコカーと判断できない' : '燃料の種類・型式がわからない' };
+}
+
 // エコカー減税をまだ確認していないとき、法定費用の欄に目立つ注意を出す。
-// 確認しないまま見積を出すと、重量税が高すぎる（または安すぎる）ことがあるため
-function showEcoCheck(cat, shakenType, eco) {
+// 目安の金額で計算しつつ、対象外／対象／免税でいくらになるかの幅も見せる
+function showEcoCheck(cat, shakenType, selected, guess, amounts) {
     const box = document.getElementById('ecoCheckBox');
     if (!box) return;
-    if (shakenType === 'none' || !cat.eco || eco !== '' || window.hideLegalFees) {
+    if (shakenType === 'none' || !cat.eco || selected !== '' || window.hideLegalFees) {
         box.style.display = 'none';
         return;
     }
     const isKei = cat.ageRule === 'kei';
+    const yen = v => v === null || v === undefined ? '—' : `¥${v.toLocaleString()}`;
+    const label = { none: '対象外（ふつうの税率）', eco: '対象（本則税率）', exempt: '免税' }[guess.value];
+    const mark = v => guess.value === v ? ' eco-guess' : '';
+
     box.style.display = 'block';
     box.innerHTML = `
-        <b>⚠️ エコカー減税の確認がまだです（今は「対象外」の金額で計算しています）</b><br>
-        重量税は、燃費の良い車（ハイブリッド車など）だと安い「本則税率」になり、
-        2026年5月以降に新車登録した特に燃費の良い車・電気自動車などは、初回の車検が「免税」になることもあります。
-        車ごとに違うので、国の照会サービスに車台番号を入れて、次の車検の重量税を確かめてください。
-        <div class="eco-buttons">
-            <button type="button" class="btn btn-primary" onclick="openWeightTaxLookup(${isKei})">🔎 車台番号をコピーして照会サービスを開く</button>
+        <b>⚠️ エコカー減税の確認がまだです</b><br>
+        今は<b>目安の「${label}」</b>で計算しています（${guess.reason}）。
+        重量税はエコカーかどうかで次のように変わります。
+        <div class="eco-amounts">
+            <span class="${mark('none')}">対象外 ${yen(amounts.none)}</span>
+            <span class="${mark('eco')}">本則税率 ${yen(amounts.eco)}</span>
+            <span class="${mark('exempt')}">免税 ¥0</span>
         </div>
+        確実な金額は、国の照会サービスに車台番号を入れるとわかります（車台番号はボタンを押すとコピーされます）。
+        <div class="eco-buttons">
+            <button type="button" class="btn ${isKei ? 'btn-outline' : 'btn-primary'}" onclick="openWeightTaxLookup(false)">🔎 普通車・小型車などの照会</button>
+            <button type="button" class="btn ${isKei ? 'btn-primary' : 'btn-outline'}" onclick="openWeightTaxLookup(true)">🔎 軽自動車の照会</button>
+        </div>
+        <div style="font-size:0.85em;color:#666;margin-top:4px;">利用時間：普通車など 1:00〜23:00 ／ 軽自動車 8:00〜23:00</div>
         <div style="margin-top:8px;">確かめた結果：</div>
         <div class="eco-buttons">
             <button type="button" class="btn btn-outline" onclick="setWeightTaxEco('none')">対象外（ふつうの税率）</button>
@@ -876,13 +961,19 @@ function setWeightTaxEco(value) {
     updateLegalFees();
 }
 
-// 国の「次回自動車重量税額照会サービス」を開く。車台番号はコピーしておき、貼り付けるだけにする
+// 国の「次回自動車重量税額照会サービス」の照会画面を開く。車台番号はコピーしておき、貼り付けるだけにする。
+// 登録車（普通・小型など）は国土交通省、軽自動車は軽自動車検査協会のサービスで別々
+const WEIGHT_TAX_LOOKUP = {
+    registered: 'https://www.nextmvtt.mlit.go.jp/nextmvtt-web/nextmvttshokai/init',
+    kei: 'https://www.kei-nextmvtt.jp/kei_nextmvtt-web/nextmvttshokai/init'
+};
+
 async function openWeightTaxLookup(isKei) {
     const chassis = document.getElementById('chassisNumber')?.value || '';
     if (chassis && navigator.clipboard) {
         try { await navigator.clipboard.writeText(chassis); } catch (e) { /* コピーできなくても開く */ }
     }
-    window.open(isKei ? 'https://www.kei-nextmvtt.jp/' : 'https://www.nextmvtt.mlit.go.jp/', '_blank', 'noopener');
+    window.open(isKei ? WEIGHT_TAX_LOOKUP.kei : WEIGHT_TAX_LOOKUP.registered, '_blank', 'noopener');
 }
 
 // 整備内容の名前が、車検で行う点検か。
@@ -932,6 +1023,7 @@ function flashLegalFeesCard(message) {
 }
 
 function updateShakenType() {
+    delete document.getElementById('shakenType').dataset.autoOneYear; // 自分で選んだ期間は自動で戻さない
     if (typeof updateShakenExpiryDisplay === 'function') {
         updateShakenExpiryDisplay();
     }
@@ -2593,6 +2685,7 @@ function applyCertificateCode2(f) {
         { label: '車台番号', value: qrValue(f[3]), target: f[3] ? '車台番号' : '' },
         { label: '原動機の型式', value: qrValue(f[4]) }
     ];
+    suggestCategoryFromPlate(); // ナンバーから乗用・貨物・事業用を選ぶ（車両重量が分かっていれば）
 }
 
 // コード3: バージョン / 車台番号打刻位置 / 型式指定番号＋類別区分番号 / 有効期間の満了する日(YYMMDD) /
@@ -2679,11 +2772,14 @@ function applyCertificateCode3(f) {
     results.push({ label: 'NOx値', value: qrValue(f[15]) });
     results.push({ label: 'PM値', value: qrValue(f[16]) });
     results.push({ label: '保安基準適用年月日', value: qrDateLabel(f[17] || '') });
-    results.push({ label: '燃料の種類', value: QR_FUEL[(f[18] || '').trim()] || qrValue(f[18]) });
+    const fuel = QR_FUEL[(f[18] || '').trim()];
+    if (fuel) document.getElementById('fuelType').value = fuel; // エコカー減税の目安に使う
+    results.push({ label: '燃料の種類', value: fuel || qrValue(f[18]), target: fuel ? '燃料の種類' : '' });
 
     qrResults.code3 = results;
 
     if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
+    suggestCategoryFromPlate();
     updateLegalFees();
     return hasExpiry; // 満了日を読めたか（記録事項の紙なら true）
 }
@@ -2948,7 +3044,10 @@ function applyCertInfo(d) {
     show('幅', d.Width, 'cm');
     show('高さ', d.Height, 'cm');
     show('総排気量又は定格出力', d.Displacement, isKei ? (d.DisplacementUnit || '') : 'L');
-    show('燃料の種類', d.FuelClass);
+    if ((d.FuelClass || '').trim()) {
+        document.getElementById('fuelType').value = d.FuelClass.trim(); // エコカー減税の目安に使う
+        rows.push({ label: '燃料の種類', value: d.FuelClass.trim(), target: '燃料の種類' });
+    }
     show('備考', (d.NoteInfo || '').replace(/\\n|\n/g, ' ／ '));
 
     if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();

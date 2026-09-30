@@ -757,7 +757,11 @@
                             <option value="exempt">免税（0円）</option>
                         </select>
                     </div>
-                    <div class="form-group"></div>
+                    <div class="form-group">
+                        <label>燃料の種類（車検証から）</label>
+                        <input type="text" class="form-control" id="fuelType" placeholder="例: ガソリン・電気"
+                            onchange="updateLegalFees()">
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
