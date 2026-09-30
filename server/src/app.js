@@ -75,11 +75,14 @@ async function connectDatabase() {
         return;
     }
 
-    // Auto-seed admin user if not present
+    // 最初の管理者を作る（ユーザーが1人もいないときだけ）。
+    // 以前は「admin という名前がいなければ」作っていたため、管理者が名前を変えたあと再起動するたびに
+    // admin / admin の管理者ができ、誰でもログインできてしまっていた
     try {
         const bcrypt = require('bcrypt');
         const User = require('./models/User');
-        const existing = await User.findOne({ where: { username: 'admin' } });
+        await removeLeftoverDefaultAdmin(User, bcrypt);
+        const existing = await User.count();
         if (!existing) {
             const hash = await bcrypt.hash('admin', 10);
             await User.create({
@@ -96,4 +99,17 @@ async function connectDatabase() {
     } catch (seedErr) {
         console.error('Seed error (non-fatal):', seedErr.message);
     }
+}
+
+// 以前の自動作成で残った「パスワードが admin のままの admin」を消す。
+// 本当の管理者（パスワードを自分で決めた人）が別にいるときだけ消すので、締め出されることはない
+async function removeLeftoverDefaultAdmin(User, bcrypt) {
+    const leftover = await User.findOne({ where: { username: 'admin', is_initial_password: true } });
+    if (!leftover || !(await bcrypt.compare('admin', leftover.password_hash))) return;
+
+    const realAdmins = await User.count({ where: { role: 'admin', is_initial_password: false } });
+    if (realAdmins === 0) return;
+
+    await leftover.destroy();
+    console.log('初期パスワードのまま残っていた admin アカウントを削除しました');
 }

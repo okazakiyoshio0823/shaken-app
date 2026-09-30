@@ -6,39 +6,53 @@ const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 
 // Register (Admin only in real app, open for dev)
+// 社員のアカウントを作る／パスワードを再発行する（管理者だけ。authRoutes で確認済み）。
+// どちらも仮パスワードにして、本人が最初のログインで自分のパスワードに変える
 exports.register = async (req, res) => {
     try {
-        console.log('[REGISTER] Starting registration:', req.body.username);
         const { username, password } = req.body;
+        if (!username || !password || password.length < 8) {
+            return res.status(400).json({ message: 'ユーザー名と、8文字以上の仮パスワードが必要です' });
+        }
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Check if user exists
-        console.log('[REGISTER] Checking if user exists...');
         const existingUser = await User.findOne({ where: { username } });
         if (existingUser) {
-            // Development helper: Update password if exists (to allow reset)
-            console.log('[REGISTER] User exists, updating password');
+            if (existingUser.id === req.user.id) {
+                return res.status(400).json({ message: '自分のパスワードは「パスワード変更」から変えてください' });
+            }
             existingUser.password_hash = hashedPassword;
-            // Also update email if provided
-            if (req.body.email) existingUser.email = req.body.email;
+            existingUser.is_initial_password = true;
             await existingUser.save();
-            await AuditLog.create({ action: 'REGISTER_UPDATE_PASS', details: { username } });
-            return res.status(200).json({ message: 'User updated' });
+            await AuditLog.create({ action: 'PASSWORD_REISSUED', user_id: req.user.id, details: { username } });
+            return res.status(200).json({ message: 'パスワードを再発行しました', reissued: true });
         }
 
-        console.log('[REGISTER] Creating new user...');
         const user = await User.create({
             username,
             password_hash: hashedPassword,
-            email: req.body.email || null
+            role: 'staff',
+            is_initial_password: true
         });
 
-        console.log('[REGISTER] User created successfully:', user.id);
-        await AuditLog.create({ action: 'REGISTER', details: { username } });
-        res.status(201).json({ message: 'User created' });
+        await AuditLog.create({ action: 'REGISTER', user_id: req.user.id, details: { username, newUserId: user.id } });
+        res.status(201).json({ message: 'アカウントを作りました', reissued: false });
     } catch (error) {
         console.error('[REGISTER] ERROR:', error.message);
         console.error('[REGISTER] STACK:', error.stack);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// アカウントの一覧（管理者だけ）。パスワードなどは返さない
+exports.listUsers = async (req, res) => {
+    try {
+        const users = await User.findAll({
+            attributes: ['username', 'role', 'is_initial_password', 'createdAt'],
+            order: [['createdAt', 'ASC']]
+        });
+        res.json(users);
+    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
@@ -82,9 +96,8 @@ exports.login = async (req, res) => {
 // Setup 2FA (Generate secret and QR)
 exports.setup2FA = async (req, res) => {
     try {
-        // In real app, verify user is logged in via token
-        const { userId } = req.body;
-        const user = await User.findByPk(userId);
+        // ログインしている本人の分だけ設定できる（authRoutes で checkAuth 済み）
+        const user = await User.findByPk(req.user.id);
 
         const secret = speakeasy.generateSecret({ name: `ShakenApp (${user.username})` });
         user.two_factor_secret = secret.base32;
@@ -169,15 +182,9 @@ exports.requestPasswordReset = async (req, res) => {
         user.reset_password_expires = Date.now() + 3600000; // 1 hour
         await user.save();
 
-        // In a real app with SMTP:
-        // await sendEmail(user.email, resetToken);
-
-        // For Local/Dev: Log to console and Return it (for demo purposes)
-        const resetLink = `http://localhost:5000/reset_password.html?token=${resetToken}`;
-        console.log(`[PEMULIHAN] Reset Link for ${user.username}: ${resetLink}`);
-
-        // In production, NEVER return the token. But for this local desktop app user request:
-        res.json({ message: 'Reset link generated', debugLink: resetLink });
+        // 再設定用のトークンは画面へは絶対に返さない（返すと、メールアドレスを知っているだけで誰でも乗っ取れる）。
+        // メール送信を設定していないので、パスワードを忘れたときは管理者に再発行してもらう
+        res.json({ message: 'パスワードを忘れたときは、管理者に再発行を頼んでください。' });
 
     } catch (error) {
         res.status(500).json({ error: error.message });

@@ -418,6 +418,8 @@
                 <p>車検見積をスマートに作成</p>
             </div>
             <div class="app-header-actions">
+                <button type="button" id="accountBtn" class="btn btn-sm btn-outline header-btn" style="display:none;"
+                    onclick="showAccountModal()" title="社員のアカウントを作る・パスワードを再発行する">👥 社員アカウント</button>
                 <button type="button" class="btn btn-sm btn-outline header-btn"
                     onclick="showBackupModal()" title="バックアップの保存・復元">🗄️ バックアップ</button>
                 <button type="button" class="btn btn-sm btn-outline header-btn"
@@ -1231,6 +1233,32 @@
         </div>
     </div>
 
+    <!-- 社員アカウント（管理者だけ。js/accounts.js） -->
+    <div class="modal-overlay" id="accountModal">
+        <div class="modal-content" style="max-width:520px;">
+            <div class="modal-header">
+                <h2>👥 社員アカウント</h2>
+                <button class="modal-close" onclick="closeAccountModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.9em;color:#666;margin:0 0 8px;">
+                    新しい社員のユーザー名を入れて「作る」を押すと、仮パスワードが出ます。
+                    パスワードを忘れた社員は、同じユーザー名で押すと仮パスワードを再発行します。
+                </p>
+                <div style="display:flex;gap:8px;margin-bottom:10px;">
+                    <input type="text" id="newAccountName" class="form-control" placeholder="例: tanaka" autocomplete="off">
+                    <button class="btn btn-success" onclick="createAccount()" style="white-space:nowrap;">作る</button>
+                </div>
+                <div id="accountResult" style="display:none;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:12px;margin-bottom:14px;"></div>
+                <div style="font-weight:bold;margin-bottom:6px;">アカウントの一覧</div>
+                <div id="accountList" style="max-height:240px;overflow-y:auto;border:1px solid #eee;border-radius:6px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeAccountModal()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <!-- バックアップ -->
     <div class="modal-overlay" id="backupModal">
         <div class="modal-content" style="max-width:640px;">
@@ -1289,6 +1317,7 @@
     <script src="js/pdf.js"></script>
     <script src="js/backup.js"></script>
     <script src="js/sync.js"></script>
+    <script src="js/accounts.js"></script>
     <script>
         // Service Worker: 2回目以降はサーバーの応答を待たずに開けるようにする
         if ("serviceWorker" in navigator) {
