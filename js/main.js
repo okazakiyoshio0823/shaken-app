@@ -3218,18 +3218,22 @@ function renderEstimateHistory(search = '') {
                     <div class="details">🚗 ${escapeHtml(e.plateNumber)} | ${escapeHtml(e.carName || '')} | <strong>${e.grandTotal}</strong></div>
                 </div>
                 <div class="estimate-actions">
-                    <button class="btn btn-primary btn-sm" onclick="loadEstimateFromHistory(${e.id})">読み込む</button>
-                    <button class="btn btn-outline btn-sm" onclick="deleteEstimateFromHistory(${e.id})">削除</button>
+                    <button class="btn btn-primary btn-sm" onclick="loadEstimateFromHistory('${escapeHtml(String(e.id))}')">読み込む</button>
+                    <button class="btn btn-outline btn-sm" onclick="deleteEstimateFromHistory('${escapeHtml(String(e.id))}')">削除</button>
                 </div>
             </div>
         `;
     }).join('');
 }
 
-// 履歴から見積を読み込む
+// 履歴から見積を読み込む。
+// IDはこの端末で作った見積なら数字、サーバーと同期して戻ってきた見積なら文字なので、文字にそろえて比べる
 function loadEstimateFromHistory(id) {
-    const e = savedEstimates.find(x => x.id === id);
-    if (!e || !e.data) return;
+    const e = savedEstimates.find(x => String(x.id) === String(id));
+    if (!e || !e.data) {
+        alert('この見積を読み込めませんでした。画面を開き直してから、もう一度試してください。');
+        return;
+    }
 
     const d = e.data;
 
@@ -3332,7 +3336,7 @@ function loadEstimateFromHistory(id) {
 function deleteEstimateFromHistory(id) {
     if (!confirm('この見積を履歴から削除しますか？')) return;
     if (typeof rememberDeletedId === 'function') rememberDeletedId(id);
-    savedEstimates = savedEstimates.filter(e => e.id !== id);
+    savedEstimates = savedEstimates.filter(e => String(e.id) !== String(id));
     localStorage.setItem(STORAGE_ESTIMATES, JSON.stringify(savedEstimates));
     renderEstimateHistory(document.getElementById('estimateHistorySearch')?.value || '');
     if (typeof syncAfterChange === 'function') syncAfterChange();
