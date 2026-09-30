@@ -285,6 +285,37 @@ body {
     width: 100px;
 }
 
+/* 自賠責の月数の選択（法定費用の欄の中） */
+.jibaiseki-months {
+    font-size: inherit;
+    padding: 2px 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+
+/* エコカー減税の確認（法定費用の欄の下） */
+.eco-check {
+    margin-top: 12px;
+    padding: 12px;
+    background: #fff8e1;
+    border: 2px solid #ffb300;
+    border-radius: 8px;
+    font-size: 0.9em;
+    line-height: 1.6;
+}
+
+.eco-check .eco-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.eco-check .eco-buttons .btn {
+    padding: 8px 10px;
+    font-size: 0.9em;
+}
+
 /* スマホのときだけ出すラベル（整備項目の「数量」など） */
 .mobile-only {
     display: none;

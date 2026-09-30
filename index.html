@@ -679,8 +679,9 @@
                         <label>車検区分</label>
                         <select class="form-control" id="shakenType" onchange="updateShakenType()">
                             <option value="none">車検なし（一般整備）</option>
-                            <option value="new">新車（初回3年）</option>
                             <option value="continue" selected>継続車検（2年）</option>
+                            <option value="continue1">継続車検（1年：貨物・事業用など）</option>
+                            <option value="new">新車（初回3年）</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -699,6 +700,32 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
+                        <label>車両の区分（法定費用の計算に使います）</label>
+                        <select class="form-control" id="vehicleCategory" onchange="onVehicleCategoryChange()"></select>
+                    </div>
+                    <div class="form-group"></div>
+                </div>
+                <!-- 貨物・特種用途は車両総重量で重量税、最大積載量で自賠責が決まる -->
+                <div class="form-row" id="cargoWeightRow" style="display:none;">
+                    <div class="form-group">
+                        <label>車両総重量 <span class="required">*</span></label>
+                        <div class="input-with-unit">
+                            <input type="number" class="form-control" id="grossWeight" placeholder="例: 2450" min="0"
+                                onchange="updateLegalFees()">
+                            <span>kg</span>
+                        </div>
+                    </div>
+                    <div class="form-group" id="maxLoadGroup">
+                        <label>最大積載量</label>
+                        <div class="input-with-unit">
+                            <input type="number" class="form-control" id="maxLoad" placeholder="例: 1000" min="0"
+                                onchange="updateLegalFees()">
+                            <span>kg</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
                         <label>車両重量 <span class="required">*</span></label>
                         <select class="form-control" id="vehicleWeight" onchange="updateLegalFees()">
                             <option value="">選択してください</option>
@@ -712,14 +739,25 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>車両経過年数 <span class="required">*</span></label>
+                        <label>車両経過年数（初度登録から自動）</label>
                         <select class="form-control" id="vehicleAge" onchange="updateLegalFees()">
                             <option value="normal">13年未満</option>
-                            <option value="ecocar">エコカー減税対象</option>
-                            <option value="over13">13年超</option>
-                            <option value="over18">18年超</option>
+                            <option value="over13">13年経過</option>
+                            <option value="over18">18年経過</option>
                         </select>
                     </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>エコカー減税（重量税）</label>
+                        <select class="form-control" id="weightTaxEco" onchange="updateLegalFees()">
+                            <option value="">未確認</option>
+                            <option value="none">対象外（ふつうの税率）</option>
+                            <option value="eco">対象（本則税率・安くなる）</option>
+                            <option value="exempt">免税（0円）</option>
+                        </select>
+                    </div>
+                    <div class="form-group"></div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -894,14 +932,21 @@
             <div class="card-body">
                 <table class="legal-table">
                     <tr>
-                        <td>自動車重量税（2年）</td>
+                        <td>自動車重量税（<span id="weightTaxYearsLabel">2</span>年）</td>
                         <td class="text-right">
                             <input type="number" class="form-control fee-input" id="weightTaxInput" value="0"
                                 onchange="onManualLegalFeeChange()">
                         </td>
                     </tr>
                     <tr>
-                        <td>自賠責保険料（24ヶ月）</td>
+                        <td>自賠責保険料（<select id="jibaisekiMonths" class="jibaiseki-months" onchange="onJibaisekiMonthsChange()">
+                                <option value="12">12</option>
+                                <option value="13">13</option>
+                                <option value="24" selected>24</option>
+                                <option value="25">25</option>
+                                <option value="36">36</option>
+                                <option value="37">37</option>
+                            </select>ヶ月）</td>
                         <td class="text-right">
                             <input type="number" class="form-control fee-input" id="jibaisekiInput" value="0"
                                 onchange="onManualLegalFeeChange()">
@@ -929,6 +974,8 @@
                         </td>
                     </tr>
                 </table>
+                <!-- エコカー減税がまだ確認されていないときの注意（main.js の showEcoCheck） -->
+                <div id="ecoCheckBox" class="eco-check" style="display:none;"></div>
                 <!-- 何を基準に計算したか（main.js の showLegalFeeBasis） -->
                 <div id="legalFeeBasis" style="font-size:0.8em;color:#666;margin-top:10px;line-height:1.6;"></div>
             </div>
@@ -1310,6 +1357,7 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="js/fees.js"></script>
     <script src="js/data.js"></script>
     <script src="js/api.js"></script>
     <script src="js/cardb.js"></script>

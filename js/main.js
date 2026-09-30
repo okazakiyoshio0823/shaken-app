@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeCarMakers();
     initializeCategoryTabs();
     showCategory('basic');
+    initializeVehicleCategories();
     updateLegalFees();
     calculateTotals();
     initializeEnterKeyNavigation();
@@ -262,6 +263,7 @@ async function saveCustomerData() {
         mileage: document.getElementById('mileage').value,
         vehicleWeight: document.getElementById('vehicleWeight').value,
         vehicleAge: document.getElementById('vehicleAge').value,
+        ...getLegalFeeInputs(),
         // 追加保存項目
         shakenType: document.getElementById('shakenType').value,
         shakenExpiryDate: document.getElementById('shakenExpiryDate').value,
@@ -422,6 +424,7 @@ async function loadCustomerData(id) {
     window.currentUploadedPhotos = c.photoUrls || [];
     if (window.renderUploadedPhotos) window.renderUploadedPhotos();
 
+    applyLegalFeeInputs(c);
     updateLegalFees();
     updateShakenExpiryDisplay();
     closeCustomerListModal();
@@ -569,6 +572,14 @@ function validateLegalFees() {
             return false;
         }
     }
+
+    // エコカー減税を確かめないまま出すと、重量税が違っていることがある
+    const ecoSelect = document.getElementById('weightTaxEco');
+    if (totalLegal > 0 && ecoSelect && !ecoSelect.disabled && ecoSelect.value === '') {
+        if (!confirm('⚠️ エコカー減税の確認がまだです。\n重量税は「対象外」の金額で計算しています。\n\n法定費用の欄の「照会サービス」で確かめてから出すのがおすすめです。\nこのまま続行しますか？')) {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -620,8 +631,103 @@ function onModelChange() {
         else if (info.weight <= 2000) w.value = '2000';
         else if (info.weight <= 2500) w.value = '2500';
         else w.value = '3000';
+        syncCategoryWithWeight();
         updateLegalFees();
     }
+}
+
+// 車両の区分の選択肢を作る（js/fees.js の LEGAL_FEES.categories）
+function initializeVehicleCategories() {
+    const select = document.getElementById('vehicleCategory');
+    if (!select) return;
+    select.innerHTML = Object.entries(LEGAL_FEES.categories)
+        .map(([key, cat]) => `<option value="${key}">${cat.label}</option>`).join('');
+    onVehicleCategoryChange(false);
+}
+
+// 軽自動車かどうかを、車両重量の欄と車両の区分でそろえる
+function syncCategoryWithWeight() {
+    const category = document.getElementById('vehicleCategory');
+    const isKeiWeight = document.getElementById('vehicleWeight').value === 'kei';
+    const isKeiCategory = category.value === 'kei' || category.value === 'keiBusiness';
+    if (isKeiWeight && !isKeiCategory) category.value = 'kei';
+    if (!isKeiWeight && isKeiCategory && document.getElementById('vehicleWeight').value) category.value = 'passenger';
+    onVehicleCategoryChange(false);
+}
+
+// 貨物は2回目以降の車検が1年
+const ONE_YEAR_CATEGORIES = ['smallCargo', 'smallCargoBusiness', 'cargo', 'cargoBusiness'];
+
+function onVehicleCategoryChange(recalculate = true) {
+    const key = document.getElementById('vehicleCategory').value;
+    const cat = getVehicleCategory(key);
+
+    // 貨物・特種用途は車両総重量が要る。最大積載量は普通貨物の自賠責だけで使う
+    document.getElementById('cargoWeightRow').style.display = cat.weightBy === 'gross' ? '' : 'none';
+    document.getElementById('maxLoadGroup').style.visibility = typeof cat.jibaiseki === 'function' ? 'visible' : 'hidden';
+
+    // 軽は車両重量の欄も「軽自動車」に
+    const weight = document.getElementById('vehicleWeight');
+    if ((key === 'kei' || key === 'keiBusiness') && weight.value !== 'kei') weight.value = 'kei';
+    if (key !== 'kei' && key !== 'keiBusiness' && weight.value === 'kei') weight.value = '';
+
+    // 小型二輪はエコカー減税なし
+    const eco = document.getElementById('weightTaxEco');
+    eco.disabled = !cat.eco;
+    if (!cat.eco) eco.value = 'none';
+
+    if (!recalculate) return;
+
+    // 貨物を選んだら1年車検に（2年の継続車検のままだったとき）
+    const shakenType = document.getElementById('shakenType');
+    if (ONE_YEAR_CATEGORIES.includes(key) && shakenType.value === 'continue') {
+        shakenType.value = 'continue1';
+        setDefaultJibaisekiMonths();
+    }
+    updateLegalFees();
+}
+
+// 法定費用に使う車両の項目（見積・お客様の保存用）
+function getLegalFeeInputs() {
+    const $ = id => document.getElementById(id);
+    return {
+        vehicleCategory: $('vehicleCategory').value,
+        grossWeight: $('grossWeight').value,
+        maxLoad: $('maxLoad').value,
+        weightTaxEco: $('weightTaxEco').value,
+        jibaisekiMonths: $('jibaisekiMonths').value
+    };
+}
+
+// 保存してあった項目を戻す。以前の見積（エコカーを「車両経過年数」で選んでいた）にも合わせる
+function applyLegalFeeInputs(d) {
+    const $ = id => document.getElementById(id);
+    $('vehicleCategory').value = d.vehicleCategory || (d.vehicleWeight === 'kei' ? 'kei' : 'passenger');
+    $('grossWeight').value = d.grossWeight || '';
+    $('maxLoad').value = d.maxLoad || '';
+    $('weightTaxEco').value = d.weightTaxEco !== undefined ? d.weightTaxEco : (d.vehicleAge === 'ecocar' ? 'eco' : '');
+    if (d.vehicleAge === 'ecocar') $('vehicleAge').value = 'normal';
+    onVehicleCategoryChange(false);
+    if (d.jibaisekiMonths) $('jibaisekiMonths').value = String(d.jibaisekiMonths);
+    else setDefaultJibaisekiMonths();
+}
+
+function resetLegalFeeInputs() {
+    applyLegalFeeInputs({});
+}
+
+function getShakenTerm() {
+    return SHAKEN_TERMS[document.getElementById('shakenType').value] || null;
+}
+
+// 車検の期間に合わせて、ふつう入る自賠責の月数にする（24ヶ月など）
+function setDefaultJibaisekiMonths() {
+    const term = getShakenTerm();
+    if (term) document.getElementById('jibaisekiMonths').value = String(term.jibaisekiMonths);
+}
+
+function onJibaisekiMonthsChange() {
+    updateLegalFees();
 }
 
 // 法定費用を計算する基準日（YYYY-MM-DD）。
@@ -634,39 +740,51 @@ function getLegalFeeReferenceDate() {
     return { date: today, label: '今日' };
 }
 
-// 5・4・7ナンバーは小型自動車（持込検査の手数料だけ普通車より安い）
-function isSmallCarByPlate() {
-    const cls = (document.getElementById('plateClass')?.value || '').trim();
-    return /^[457]/.test(cls);
-}
-
-// 法定費用
+// 法定費用（重量税・自賠責・印紙代）を、車両の区分・車検の期間・日付から計算して入れる
 function updateLegalFees() {
-    const weight = document.getElementById('vehicleWeight').value;
-    const ageSelect = document.getElementById('vehicleAge');
-    const factory = document.getElementById('factoryType').value;
-    const oss = document.getElementById('useOSS').checked;
-    const shakenType = document.getElementById('shakenType').value;
+    const $ = id => document.getElementById(id);
+    const categoryKey = $('vehicleCategory')?.value || 'passenger';
+    const cat = getVehicleCategory(categoryKey);
+    const shakenType = $('shakenType').value;
+    const term = getShakenTerm();
+    const months = parseInt($('jibaisekiMonths').value, 10) || 24;
     const ref = getLegalFeeReferenceDate();
 
-    // 経過年数は初度登録から自動で決める（エコカーを選んだときはそのまま）
-    const firstReg = document.getElementById('firstRegistration')?.value;
-    if (firstReg && ageSelect.value !== 'ecocar') {
-        const ageClass = calculateVehicleAgeClass(firstReg, ref.date);
-        if (ageClass) ageSelect.value = ageClass;
+    // 経過年数は初度登録から自動で決める（国の数え方。軽と登録車で違う）
+    const firstReg = $('firstRegistration')?.value;
+    if (firstReg) {
+        const ageClass = calculateVehicleAgeClass(firstReg, ref.date, cat.ageRule);
+        if (ageClass) $('vehicleAge').value = ageClass;
     }
-    const age = ageSelect.value;
 
-    if (shakenType === 'none' || !weight) {
-        currentLegalFees = { weightTax: 0, jibaiseki: 0, stamp: 0 };
-    } else {
-        const isKei = weight === 'kei';
-        const weightNum = isKei ? 0 : parseInt(weight);
-        currentLegalFees.weightTax = calculateWeightTax(weightNum, age, isKei);
-        currentLegalFees.jibaiseki = calculateJibaiseki(isKei, ref.date);
-        currentLegalFees.stamp = calculateInspectionFee(isKei, isSmallCarByPlate(), factory, oss, ref.date);
+    const weightBin = $('vehicleWeight').value;
+    const vehicleWeightKg = weightBin && weightBin !== 'kei' ? parseInt(weightBin, 10) : 0;
+    const grossWeightKg = parseInt($('grossWeight').value, 10) || 0;
+    const maxLoadKg = parseInt($('maxLoad').value, 10) || 0;
+    const eco = $('weightTaxEco').value;
+
+    // 足りない入力（あれば法定費用の下に出す）
+    const missing = [];
+    if (cat.weightBy === 'vehicle' && !vehicleWeightKg) missing.push('車両重量');
+    if (cat.weightBy === 'gross' && !grossWeightKg) missing.push('車両総重量');
+    if (typeof cat.jibaiseki === 'function' && !maxLoadKg) missing.push('最大積載量');
+
+    let weightTax = 0, jibaiseki = 0, stamp = 0;
+    const notFound = [];
+    if (term) {
+        const wt = calculateWeightTax({ categoryKey, years: term.years, vehicleWeightKg, grossWeightKg, ageClass: $('vehicleAge').value, eco });
+        if (wt === null) { if (!missing.length) notFound.push('重量税'); } else weightTax = wt;
+
+        const jb = calculateJibaiseki(categoryKey, months, ref.date, maxLoadKg);
+        if (jb === null) notFound.push(`自賠責（${months}ヶ月）`); else jibaiseki = jb;
+
+        stamp = calculateInspectionFee(categoryKey, $('plateClass')?.value, $('factoryType').value, $('useOSS').checked, ref.date);
     }
-    showLegalFeeBasis(ref, weight, shakenType);
+    currentLegalFees = { weightTax, jibaiseki, stamp };
+
+    $('weightTaxYearsLabel').textContent = term ? term.years : 2;
+    showLegalFeeBasis({ ref, cat, term, months, missing, notFound });
+    showEcoCheck(cat, shakenType, eco);
 
     const wtInput = document.getElementById('weightTaxInput');
     const jbInput = document.getElementById('jibaisekiInput');
@@ -692,53 +810,108 @@ function onManualLegalFeeChange() {
 }
 
 // 法定費用の下に「何を基準に計算したか」を出す。お客様に聞かれたときに答えられるように
-function showLegalFeeBasis(ref, weight, shakenType) {
+function showLegalFeeBasis({ ref, cat, term, months, missing, notFound }) {
     const el = document.getElementById('legalFeeBasis');
     if (!el) return;
 
-    if (shakenType === 'none') {
+    if (!term) {
         el.innerHTML = '';
         return;
     }
-    if (!weight) {
-        el.innerHTML = '<span style="color:#c62828;">⚠️ 車両情報の「車両重量」を選ぶと、重量税・自賠責・印紙代が自動で入ります。</span>';
+    if (missing.length) {
+        el.innerHTML = `<span style="color:#c62828;">⚠️ 車両情報の「${missing.join('」「')}」を入れると、重量税・自賠責が自動で入ります。</span>`;
         return;
     }
 
     const d = ref.date.split('-');
-    const ageText = { normal: '13年未満', over13: '13年経過', over18: '18年経過', ecocar: 'エコカー（本則税率）' }[document.getElementById('vehicleAge').value] || '';
+    const ageText = { normal: '13年未満', over13: '13年経過', over18: '18年経過' }[document.getElementById('vehicleAge').value] || '';
+    const ecoText = { '': 'エコカー減税は未確認', none: 'エコカー減税の対象外', eco: 'エコカー（本則税率）', exempt: '免税' }[document.getElementById('weightTaxEco').value];
     const factory = document.getElementById('factoryType').value === 'certified'
         ? '持込検査'
         : (document.getElementById('useOSS').checked ? '指定工場・OSS' : '指定工場・窓口');
     const [cy, cm, cd] = LEGAL_FEES.checkedOn.split('-');
+    let warn = notFound.length
+        ? `<br><span style="color:#c62828;">⚠️ ${notFound.join('・')}は、この車両の区分と期間の組み合わせが料金表にありません。金額を手で入れてください。</span>`
+        : '';
+    // 料金表の確認が途切れていたら知らせる（毎月、国の資料と照らし合わせて更新している）
+    const staleDays = Math.floor((Date.now() - new Date(LEGAL_FEES.checkedOn).getTime()) / 86400000);
+    if (staleDays > 60) {
+        warn += `<br><span style="color:#c62828;">⚠️ 料金表を国の資料で確認してから${staleDays}日たっています。管理者に更新を頼んでください。</span>`;
+    }
 
     el.innerHTML = `
-        計算の基準日：${Number(d[0])}年${Number(d[1])}月${Number(d[2])}日（${ref.label}）／ 重量税：${ageText} ／ 印紙代：${factory}<br>
-        料金表は${cy}年${Number(cm)}月${Number(cd)}日時点の国の料金です。エコカー減税で免税になる車などは、
-        <a href="${weight === 'kei' ? 'https://www.kei-nextmvtt.jp/' : 'https://www.nextmvtt.mlit.go.jp/'}" target="_blank" rel="noopener">国の重量税照会サービス</a>
-        で車台番号から確かめてください。`;
+        ${cat.label}・${term.label}・自賠責${months}ヶ月 ／ 重量税：${ageText}・${ecoText} ／ 印紙代：${factory}<br>
+        計算の基準日：${Number(d[0])}年${Number(d[1])}月${Number(d[2])}日（${ref.label}）。料金表は${cy}年${Number(cm)}月${Number(cd)}日に国の資料で確認した金額です。${warn}`;
 }
 
-// 整備内容の名前が「24ヶ月点検」「車検」などか
+// エコカー減税をまだ確認していないとき、法定費用の欄に目立つ注意を出す。
+// 確認しないまま見積を出すと、重量税が高すぎる（または安すぎる）ことがあるため
+function showEcoCheck(cat, shakenType, eco) {
+    const box = document.getElementById('ecoCheckBox');
+    if (!box) return;
+    if (shakenType === 'none' || !cat.eco || eco !== '' || window.hideLegalFees) {
+        box.style.display = 'none';
+        return;
+    }
+    const isKei = cat.ageRule === 'kei';
+    box.style.display = 'block';
+    box.innerHTML = `
+        <b>⚠️ エコカー減税の確認がまだです（今は「対象外」の金額で計算しています）</b><br>
+        重量税は、燃費の良い車（ハイブリッド車など）だと安い「本則税率」になり、
+        2026年5月以降に新車登録した特に燃費の良い車・電気自動車などは、初回の車検が「免税」になることもあります。
+        車ごとに違うので、国の照会サービスに車台番号を入れて、次の車検の重量税を確かめてください。
+        <div class="eco-buttons">
+            <button type="button" class="btn btn-primary" onclick="openWeightTaxLookup(${isKei})">🔎 車台番号をコピーして照会サービスを開く</button>
+        </div>
+        <div style="margin-top:8px;">確かめた結果：</div>
+        <div class="eco-buttons">
+            <button type="button" class="btn btn-outline" onclick="setWeightTaxEco('none')">対象外（ふつうの税率）</button>
+            <button type="button" class="btn btn-outline" onclick="setWeightTaxEco('eco')">対象（本則税率）</button>
+            <button type="button" class="btn btn-outline" onclick="setWeightTaxEco('exempt')">免税（0円）</button>
+        </div>`;
+}
+
+function setWeightTaxEco(value) {
+    document.getElementById('weightTaxEco').value = value;
+    updateLegalFees();
+}
+
+// 国の「次回自動車重量税額照会サービス」を開く。車台番号はコピーしておき、貼り付けるだけにする
+async function openWeightTaxLookup(isKei) {
+    const chassis = document.getElementById('chassisNumber')?.value || '';
+    if (chassis && navigator.clipboard) {
+        try { await navigator.clipboard.writeText(chassis); } catch (e) { /* コピーできなくても開く */ }
+    }
+    window.open(isKei ? 'https://www.kei-nextmvtt.jp/' : 'https://www.nextmvtt.mlit.go.jp/', '_blank', 'noopener');
+}
+
+// 整備内容の名前が、車検で行う点検か。
+// 24ヶ月点検は2年の車検。12ヶ月点検は1年車検のときだけ（乗用車の12ヶ月点検だけの仕事と区別する）
 function isShakenInspectionItem(name) {
-    return !!name && /24/.test(name) && /点検|車検/.test(name);
+    if (!name) return false;
+    if (/24/.test(name) && /点検|車検/.test(name)) return true;
+    if (/12/.test(name) && /点検/.test(name) && document.getElementById('shakenType').value === 'continue1') return true;
+    return false;
 }
 
-// 24ヶ月点検が入ったら、車検の法定費用・諸費用をまとめて入れる
+// 車検の点検が入ったら、車検の法定費用・諸費用をまとめて入れる
 function applyShakenLegalFees() {
     if (window.hideLegalFees) setLegalFeesHidden(false);
 
     const shakenType = document.getElementById('shakenType');
-    if (shakenType.value === 'none') shakenType.value = 'continue';
+    if (shakenType.value === 'none') {
+        shakenType.value = ONE_YEAR_CATEGORIES.includes(document.getElementById('vehicleCategory').value) ? 'continue1' : 'continue';
+        setDefaultJibaisekiMonths();
+    }
 
     document.getElementById('reservationFee').value = LEGAL_FEES.reservationFee;
     document.getElementById('agencyFee').value = Math.round(LEGAL_FEES.agencyFeeExTax * (1 + TAX_RATE));
     updateLegalFees();
 
-    const weight = document.getElementById('vehicleWeight').value;
-    flashLegalFeesCard(weight
-        ? '✅ 24ヶ月点検が入ったので、法定費用・諸費用を自動で入れました'
-        : '⚠️ 24ヶ月点検が入りました。車両重量を選ぶと、重量税・自賠責・印紙代も入ります');
+    const hasMissing = /入れると/.test(document.getElementById('legalFeeBasis')?.textContent || '');
+    flashLegalFeesCard(hasMissing
+        ? '⚠️ 車検の点検が入りました。車両情報の足りないところを入れると、重量税・自賠責も入ります'
+        : '✅ 車検の点検が入ったので、法定費用・諸費用を自動で入れました');
 }
 
 // 法定費用の欄に、自動で入れたことを数秒だけ知らせる
@@ -762,6 +935,7 @@ function updateShakenType() {
     if (typeof updateShakenExpiryDisplay === 'function') {
         updateShakenExpiryDisplay();
     }
+    setDefaultJibaisekiMonths();
     updateLegalFees();
 }
 
@@ -1229,6 +1403,7 @@ function clearForm() {
     if (document.getElementById('shakenType')) document.getElementById('shakenType').value = 'continue';
     if (document.getElementById('factoryType')) document.getElementById('factoryType').value = 'designated';
     if (document.getElementById('carMaker')) document.getElementById('carMaker').value = '';
+    resetLegalFeeInputs();
 
     // 整備項目リストを空に
     maintenanceItems = [];
@@ -1282,6 +1457,7 @@ function clearVehicleSection() {
     document.getElementById('carMaker').value = '';
     onMakerChange(); // 車名・型式の選択肢も空に戻す
     document.getElementById('vehicleAge').value = 'normal';
+    resetLegalFeeInputs();
 
     if (typeof updateShakenExpiryDisplay === 'function') updateShakenExpiryDisplay();
     updateLegalFees(); // 重量・年数が変わるので法定費用を計算し直す
@@ -1351,7 +1527,7 @@ function generatePreviewHtml() {
         ageLabel = age + '年';
     } else {
         const va = document.getElementById('vehicleAge').value;
-        ageLabel = { ecocar: 'エコカー', over13: '13年超', over18: '18年超' }[va] || '標準';
+        ageLabel = { over13: '13年経過', over18: '18年経過' }[va] || '標準';
     }
 
     let maintString = document.getElementById('maintenanceSubtotal').textContent;
@@ -1601,8 +1777,8 @@ function generatePreviewHtml() {
                 ${window.hideLegalFees ? '' : `
                 <h4 style="margin-top: 0; background: #eee; padding: 5px; font-size:1em;">法定費用・諸費用</h4>
                 <table class="preview-table" style="width: 100%; font-size: 0.9em; border-collapse: collapse;">
-                    <tr style="border-bottom: 1px solid #ddd;"><td>自動車重量税</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
-                    <tr style="border-bottom: 1px solid #ddd;"><td>自賠責保険料</td><td class="text-right">¥${currentLegalFees.jibaiseki.toLocaleString()}</td></tr>
+                    <tr style="border-bottom: 1px solid #ddd;"><td>自動車重量税（${(getShakenTerm() || { years: 2 }).years}年）</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
+                    <tr style="border-bottom: 1px solid #ddd;"><td>自賠責保険料（${document.getElementById('jibaisekiMonths').value}ヶ月）</td><td class="text-right">¥${currentLegalFees.jibaiseki.toLocaleString()}</td></tr>
                     <tr style="border-bottom: 1px solid #ddd;"><td>印紙代</td><td class="text-right">¥${currentLegalFees.stamp.toLocaleString()}</td></tr>
                     <tr style="border-bottom: 1px solid #ddd;"><td>検査予約手数料</td><td class="text-right">¥${reserve.toLocaleString()}</td></tr>
                     <tr style="border-bottom: 1px solid #ddd;"><td>代行手数料</td><td class="text-right">¥${agency.toLocaleString()}</td></tr>
@@ -1687,7 +1863,7 @@ function generatePreviewHtml() {
     const carModel = document.getElementById('carModel').value || '';
     const chassisNumber = document.getElementById('chassisNumber').value || '';
     const mileage = document.getElementById('mileage').value || '';
-    const ageLabel = { ecocar: 'エコカー', over13: '13年超', over18: '18年超' }[document.getElementById('vehicleAge').value] || '13年未満';
+    const ageLabel = { over13: '13年経過', over18: '18年経過' }[document.getElementById('vehicleAge').value] || '13年未満';
     const notes = document.getElementById('notes').value || '';
 
     const maint = maintenanceItems.reduce((s, i) => s + i.taxIncludedPrice, 0);
@@ -1803,8 +1979,8 @@ function generatePreviewHtml() {
             <div class="preview-section">📋 法定費用・諸費用</div>
             <table class="preview-table">
                 <tbody>
-                    <tr><td>自動車重量税（2年）</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
-                    <tr><td>自賠責保険料（24ヶ月）</td><td class="text-right">¥${currentLegalFees.jibaiseki.toLocaleString()}</td></tr>
+                    <tr><td>自動車重量税（${(getShakenTerm() || { years: 2 }).years}年）</td><td class="text-right">¥${currentLegalFees.weightTax.toLocaleString()}</td></tr>
+                    <tr><td>自賠責保険料（${document.getElementById('jibaisekiMonths').value}ヶ月）</td><td class="text-right">¥${currentLegalFees.jibaiseki.toLocaleString()}</td></tr>
                     <tr><td>印紙代</td><td class="text-right">¥${currentLegalFees.stamp.toLocaleString()}</td></tr>
                     <tr><td>検査予約手数料</td><td class="text-right">¥${reserve.toLocaleString()}</td></tr>
                     <tr><td>代行手数料</td><td class="text-right">¥${agency.toLocaleString()}</td></tr>
@@ -2709,6 +2885,25 @@ function applyCertInfo(d) {
     }
     rows.push({ label: '車両重量', value: weight ? `${weight}kg` : '', target: isKei || weight ? (isKei ? '車両重量（軽自動車）' : '車両重量') : '' });
 
+    // 車両の区分（法定費用の表を選ぶのに使う）。用途・自家用/事業用・自動車の種別から決める
+    const isBusiness = /事業/.test(d.PrivateBusiness || '');
+    const kind = d.CarKind || '', use = d.Use || '';
+    const category = isKei ? (isBusiness ? 'keiBusiness' : 'kei')
+        : /二輪/.test(kind) ? 'motorcycle'
+        : /貨物/.test(use) ? (/小型/.test(kind) ? (isBusiness ? 'smallCargoBusiness' : 'smallCargo') : (isBusiness ? 'cargoBusiness' : 'cargo'))
+        : /特種/.test(use) ? 'special'
+        : 'passenger';
+    document.getElementById('vehicleCategory').value = category;
+    const gross = parseInt(hw(d.CarTotalWgt), 10), maxLoad = parseInt(hw(d.Maxloadage), 10);
+    if (gross > 0) set('grossWeight', String(gross));
+    if (maxLoad > 0) set('maxLoad', String(maxLoad));
+    onVehicleCategoryChange(false);
+    if (ONE_YEAR_CATEGORIES.includes(category) && document.getElementById('shakenType').value === 'continue') {
+        document.getElementById('shakenType').value = 'continue1';
+        setDefaultJibaisekiMonths();
+    }
+    rows.push({ label: '車両の区分（法定費用）', value: getVehicleCategory(category).label, target: '車両の区分' });
+
     // 使用者・所有者。
     // 登録車: 使用者が所有者と同じときは使用者欄が「＊＊＊」。軽自動車: 所有者欄が「使用者に同じ」
     const nameOf = (high, low) => (high || low || '').trim();
@@ -3040,7 +3235,7 @@ function shareToLine() {
     // 法定費用
     const reserve = parseInt(document.getElementById('reservationFee').value) || 0;
     const agency = parseInt(document.getElementById('agencyFee').value) || 0;
-    const legalFeeText = window.hideLegalFees ? '' : `\n📜 法定費用\n・重量税 ¥${currentLegalFees.weightTax.toLocaleString()}\n・自賠責 ¥${currentLegalFees.jibaiseki.toLocaleString()}\n・印紙代 ¥${currentLegalFees.stamp.toLocaleString()}\n・予備検査料 ¥${reserve.toLocaleString()}\n・代行手数料 ¥${agency.toLocaleString()}\n法定費用 合計: ¥${getLegalFeesTotal().toLocaleString()}\n`;
+    const legalFeeText = window.hideLegalFees ? '' : `\n📜 法定費用\n・重量税 ¥${currentLegalFees.weightTax.toLocaleString()}\n・自賠責 ¥${currentLegalFees.jibaiseki.toLocaleString()}\n・印紙代 ¥${currentLegalFees.stamp.toLocaleString()}\n・検査予約手数料 ¥${reserve.toLocaleString()}\n・代行手数料 ¥${agency.toLocaleString()}\n法定費用 合計: ¥${getLegalFeesTotal().toLocaleString()}\n`;
 
     const message = `【${docInfo.title}】
 
@@ -3194,6 +3389,7 @@ function getCurrentEstimateData() {
         mileage: document.getElementById('mileage').value,
         vehicleWeight: document.getElementById('vehicleWeight').value,
         vehicleAge: document.getElementById('vehicleAge').value,
+        ...getLegalFeeInputs(),
         factoryType: document.getElementById('factoryType').value,
         useOSS: document.getElementById('useOSS').checked,
         shakenType: document.getElementById('shakenType').value,
@@ -3399,6 +3595,7 @@ function loadEstimateFromHistory(id) {
     }
 
     // 法定費用
+    applyLegalFeeInputs(d);
     document.getElementById('reservationFee').value = d.reservationFee || LEGAL_FEES.reservationFee;
     document.getElementById('agencyFee').value = d.agencyFee || '11000';
     setLegalFeesHidden(d.hideLegalFees);

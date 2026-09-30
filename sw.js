@@ -3,7 +3,7 @@
 // Renderの無料プランはスリープから復帰するのに20秒以上かかるため、
 // 画面だけでも即座に出ることがスマホでの使い勝手を大きく左右する。
 
-const CACHE_NAME = 'shaken-app-v15';
+const CACHE_NAME = 'shaken-app-v17';
 
 // アプリの外枠。これだけあれば見積の作成・検索・印刷はオフラインでも動く
 const APP_SHELL = [
@@ -13,6 +13,7 @@ const APP_SHELL = [
     './guide.html',
     './manifest.json',
     './css/style.css',
+    './js/fees.js',
     './js/data.js',
     './js/api.js',
     './js/cardb.js',
